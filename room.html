@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hynora — Sala</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <style>
+    :root {
+      --green:       #40916C;
+      --green-dark:  #174732;
+      --green-deep:  #0d2b1e;
+      --green-light: #52b788;
+      --green-pale:  #74c69d;
+      --bg:          #0a1510;
+      --surface:     rgba(23,71,50,0.25);
+      --surface2:    rgba(64,145,108,0.12);
+      --border:      rgba(64,145,108,0.22);
+      --border2:     rgba(64,145,108,0.5);
+      --text:        #d8f3dc;
+      --muted:       #74c69d;
+      --spotify:     #1DB954;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pixelify Sans', monospace;
+      background: var(--bg); color: var(--text);
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(64,145,108,0.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── TOPBAR ── */
+    #topbar {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,21,16,0.95);
+      backdrop-filter: blur(10px); flex-shrink: 0;
+    }
+    #logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; color: var(--green);
+      text-shadow: 2px 2px 0 var(--green-dark);
+      cursor: pointer;
+    }
+    #room-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px; color: var(--green-light);
+    }
+    .tbadge {
+      font-size: 9px; padding: 2px 8px; border-radius: 3px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    }
+    #sp-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 9px; padding: 3px 9px; border-radius: 3px;
+      background: rgba(29,185,84,0.12); border: 1px solid rgba(29,185,84,0.3);
+      color: var(--spotify);
+    }
+    #sp-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--spotify); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    #user-top { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+    .av-sm {
+      width: 26px; height: 26px; background: var(--green-dark);
+      border: 1.5px solid var(--green); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--green);
+    }
+    #btn-leave {
+      font-family: 'Pixelify Sans', monospace; font-size: 10px; padding: 3px 10px;
+      background: transparent; border: 1.5px solid rgba(200,80,80,0.4);
+      border-radius: 4px; color: #e07070; cursor: pointer; transition: all 0.2s;
+    }
+    #btn-leave:hover { background: rgba(200,80,80,0.15); }
+
+    /* ── MAIN ── */
+    #main {
+      position: relative; z-index: 1; flex: 1;
+      display: grid; grid-template-columns: 1fr 285px;
+      overflow: hidden;
+    }
+
+    /* ── CENTER ── */
+    #center { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+
+    /* ── PLAYER AREA ── */
+    #player-area {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+
+    /* Album art + controls */
+    #player-box {
+      display: flex; align-items: center; gap: 16px;
+    }
+    #album-art {
+      width: 90px; height: 90px; flex-shrink: 0;
+      border-radius: 6px; background: var(--green-deep);
+      border: 2px solid var(--green-dark);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: var(--green-dark);
+    }
+    #album-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    #player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+
+    #np-track {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #np-artist { font-size: 11px; color: var(--muted); }
+
+    /* Progress bar */
+    #progress-wrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    #progress-bar {
+      flex: 1; height: 4px; background: var(--green-dark);
+      border-radius: 2px; overflow: hidden; cursor: pointer;
+    }
+    #progress-fill {
+      height: 100%; background: var(--spotify);
+      border-radius: 2px; width: 0%;
+      transition: width 0.5s linear;
+    }
+    .prog-time { font-size: 9px; color: var(--muted); white-space: nowrap; }
+
+    /* Controls */
+    #controls {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .ctrl-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--muted); font-size: 16px;
+      padding: 4px; border-radius: 4px;
+      transition: all 0.15s; line-height: 1;
+    }
+    .ctrl-btn:hover { color: var(--text); }
+    #btn-play-pause {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--spotify); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #000;
+      transition: all 0.15s;
+    }
+    #btn-play-pause:hover { background: #1ed760; transform: scale(1.05); }
+
+    /* volume */
+    #vol-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    #vol-icon { font-size: 12px; color: var(--muted); }
+    #vol-slider {
+      -webkit-appearance: none;
+      width: 70px; height: 3px;
+      background: var(--green-dark); border-radius: 2px; outline: none; cursor: pointer;
+    }
+    #vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%; background: var(--green); cursor: pointer;
+    }
+
+    /* Bars animation */
+    .bars {
+      display: flex; gap: 2px; align-items: flex-end; height: 14px; flex-shrink: 0;
+    }
+    .bars .b {
+      width: 3px; background: var(--spotify);
+      border-radius: 1px; height: 40%;
+      animation: bounce 0.9s ease-in-out infinite;
+    }
+    .bars .b:nth-child(2){animation-delay:.15s}
+    .bars .b:nth-child(3){animation-delay:.3s}
+    .bars .b:nth-child(4){animation-delay:.08s}
+    .bars.off .b { animation-play-state: paused; height: 25% !important; }
+    @keyframes bounce { 0%,100%{height:25%} 50%{height:100%} }
+
+    /* ── SEARCH + QUEUE ── */
+    #bottom-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+
+    .sec-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px 6px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .sec-ttl {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px; color: var(--green); letter-spacing: 2px;
+    }
+
+    /* Tabs */
+    #tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .tab {
+      flex: 1; padding: 8px;
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      color: var(--muted); background: transparent; border: none;
+      cursor: pointer; letter-spacing: 1px; border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+    /* Search panel */
+    #panel-search { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #panel-queue  { flex: 1; display: flex; flex-direction: column; overflow: hidden; display: none; }
+
+    #search-form {
+      display: flex; gap: 8px; padding: 9px 16px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    #search-input {
+      flex: 1; background: rgba(0,0,0,0.45);
+      border: 1.5px solid var(--green-dark); border-radius: 5px;
+      padding: 7px 12px; color: var(--text);
+      font-family: 'Pixelify Sans', monospace; font-size: 12px; outline: none;
+      transition: border-color 0.2s;
+    }
+    #search-input:focus { border-color: var(--green); }
+    #search-input::placeholder { color: rgba(116,198,157,0.35); }
+    #btn-search {
+      font-family: 'Pixelify Sans', monospace; font-size: 12px; padding: 7px 14px;
+      background: var(--green-dark); border: 1.5px solid var(--green);
+      border-radius: 5px; color: var(--green-light); cursor: pointer;
+      letter-spacing: 1px; transition: all 0.2s; white-space: nowrap;
+    }
+    #btn-search:hover { background: var(--green); color: var(--bg); }
+    #btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #search-results, #queue-list {
+      flex: 1; overflow-y: auto; padding: 6px 16px;
+    }
+    #search-results::-webkit-scrollbar, #queue-list::-webkit-scrollbar { width: 3px; }
+    #search-results::-webkit-scrollbar-thumb, #queue-list::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
+
+    /* Track card */
+    .track-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 9px; border-radius: 6px;
+      border: 1px solid transparent;
+      transition: all 0.18s; margin-bottom: 3px;
+    }
+    .track-card:hover { background: var(--surface2); border-color: var(--border); }
+    .track-card.playing { background: var(--surface); border-color: var(--border2); }
+    .t-num {
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      color: var(--green-dark); width: 14px; text-align: center; flex-shrink: 0;
+    }
+    .track-card.playing .t-num { color: var(--spotify); }
+    .t-art {
+      width: 42px; height: 42px; border-radius: 4px;
+      background: var(--green-deep); border: 1px solid var(--green-dark);
+      flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: var(--green-dark);
+    }
+    .t-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .t-info { flex: 1; min-width: 0; }
+    .t-name { font-size: 12px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-sub { font-size: 10px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-dur { font-size: 9px; color: var(--muted); flex-shrink: 0; }
+    .btn-add-q {
+      font-size: 14px; color: var(--green-dark); background: transparent;
+      border: none; cursor: pointer; padding: 4px; border-radius: 3px;
+      transition: all 0.15s; flex-shrink: 0; line-height: 1;
+    }
+    .btn-add-q:hover { color: var(--green); }
+    .btn-play-now {
+      font-size: 13px; color: rgba(29,185,84,0.4); background: transparent;
+      border: none; cursor: pointer; padding: 4px; border-radius: 3px;
+      transition: all 0.15s; flex-shrink: 0; line-height: 1;
+    }
+    .btn-play-now:hover { color: var(--spotify); }
+    .q-rm {
+      font-size: 11px; color: rgba(200,80,80,0.35); background: transparent;
+      border: none; cursor: pointer; padding: 3px 5px; border-radius: 3px;
+      transition: all 0.15s; flex-shrink: 0; line-height: 1;
+    }
+    .q-rm:hover { color: #e07070; background: rgba(200,80,80,0.1); }
+
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 10px; height: 90px;
+    }
+    .empty-icon { font-size: 22px; color: var(--green-dark); }
+    .empty-txt {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px; color: var(--green-dark); letter-spacing: 2px; text-align: center;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar { display: flex; flex-direction: column; overflow: hidden; }
+
+    #parts-panel { border-bottom: 1px solid var(--border); padding: 10px 12px; flex-shrink: 0; }
+    .panel-ttl {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px; color: var(--green); letter-spacing: 2px; margin-bottom: 8px;
+    }
+    #parts-list { display: flex; flex-direction: column; gap: 4px; }
+    .part {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 7px; border-radius: 5px; background: var(--surface);
+    }
+    .p-av {
+      width: 22px; height: 22px; border-radius: 3px;
+      background: var(--green-deep); border: 1.5px solid var(--green-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace; font-size: 5px; color: var(--green); flex-shrink: 0;
+    }
+    .p-av.me { border-color: var(--green); }
+    .p-nm { font-size: 11px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .p-bdg {
+      font-size: 7px; padding: 1px 5px;
+      background: rgba(64,145,108,0.18); border: 1px solid rgba(64,145,108,0.3);
+      border-radius: 3px; color: var(--green-light); flex-shrink: 0;
+    }
+    .p-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--spotify); flex-shrink: 0; }
+    .p-dot.green { background: var(--green-light); }
+
+    /* Chat */
+    #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #chat-msgs {
+      flex: 1; overflow-y: auto; padding: 8px 12px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    #chat-msgs::-webkit-scrollbar { width: 3px; }
+    #chat-msgs::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
+    .msg { display: flex; flex-direction: column; gap: 2px; }
+    .msg-hdr { display: flex; align-items: center; gap: 5px; }
+    .msg-nick { font-family: 'Press Start 2P', monospace; font-size: 5px; color: var(--green-light); }
+    .msg-nick.me { color: var(--spotify); }
+    .msg-time { font-size: 9px; color: rgba(116,198,157,0.3); }
+    .msg-txt { font-size: 11px; color: var(--text); line-height: 1.4; }
+    .msg.sys .msg-hdr { display: none; }
+    .msg.sys .msg-txt { font-size: 9px; color: var(--muted); font-style: italic; }
+    #chat-form {
+      display: flex; gap: 5px;
+      padding: 6px 12px 8px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    #chat-input {
+      flex: 1; background: rgba(0,0,0,0.45);
+      border: 1.5px solid var(--green-dark); border-radius: 5px;
+      padding: 6px 9px; color: var(--text);
+      font-family: 'Pixelify Sans', monospace; font-size: 12px; outline: none;
+      transition: border-color 0.2s;
+    }
+    #chat-input:focus { border-color: var(--green); }
+    #chat-input::placeholder { color: rgba(116,198,157,0.3); }
+    #btn-send {
+      font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 6px 9px;
+      background: var(--green-dark); border: 1.5px solid var(--green);
+      border-radius: 5px; color: var(--green-light); cursor: pointer;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    #btn-send:hover { background: var(--green); color: var(--bg); }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 18px; left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: rgba(10,21,16,0.97); border: 1.5px solid var(--green);
+      border-radius: 6px; padding: 8px 18px;
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      color: var(--green-light); letter-spacing: 1px;
+      transition: transform 0.3s ease; z-index: 9998;
+      backdrop-filter: blur(10px);
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* No spotify warning */
+    #no-spotify {
+      display: none;
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(10,21,16,0.92); backdrop-filter: blur(10px);
+      align-items: center; justify-content: center;
+    }
+    #no-spotify-box {
+      background: rgba(10,21,16,0.98);
+      border: 1.5px solid var(--border2); border-radius: 12px;
+      padding: 32px 36px; text-align: center;
+      display: flex; flex-direction: column; gap: 16px; align-items: center;
+    }
+    #no-spotify-box h2 { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--green); }
+    #no-spotify-box p { font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.6; }
+    #btn-go-login {
+      font-family: 'Press Start 2P', monospace; font-size: 8px; letter-spacing: 2px;
+      padding: 12px 24px; background: var(--spotify); border: none;
+      border-radius: 6px; color: #000; cursor: pointer; transition: all 0.2s;
+    }
+    #btn-go-login:hover { background: #1ed760; }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- No Spotify overlay -->
+<div id="no-spotify">
+  <div id="no-spotify-box">
+    <div style="font-size:32px">🎵</div>
+    <h2>SPOTIFY NÃO CONECTADO</h2>
+    <p>Você precisa conectar sua conta Spotify Premium para usar o player.</p>
+    <button id="btn-go-login">▸ IR PARA LOGIN</button>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo" onclick="goHome()">HYNORA</div>
+  <span style="color:var(--green-dark)">▸</span>
+  <div id="room-name">Rock Clássico</div>
+  <span class="tbadge">🎸 ROCK • 80s</span>
+  <span class="tbadge" id="cnt-badge">3 online</span>
+  <div id="sp-badge"><div class="dot"></div><span id="sp-label">Spotify</span></div>
+  <div id="user-top">
+    <div class="av-sm" id="av-top">?</div>
+    <span id="nick-top">...</span>
+    <button id="btn-leave">SAIR</button>
+  </div>
+</div>
+
+<div id="main">
+  <!-- CENTER -->
+  <div id="center">
+
+    <!-- Player -->
+    <div id="player-area">
+      <div id="player-box">
+        <div id="album-art"><span id="album-placeholder">♪</span></div>
+        <div id="player-info">
+          <div id="np-track">Nenhuma música tocando</div>
+          <div id="np-artist">—</div>
+          <div id="progress-wrap">
+            <span class="prog-time" id="time-cur">0:00</span>
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <span class="prog-time" id="time-tot">0:00</span>
+          </div>
+          <div id="controls">
+            <div class="bars off" id="bars"><div class="b"></div><div class="b"></div><div class="b"></div><div class="b"></div></div>
+            <button class="ctrl-btn" id="btn-prev" title="Anterior">⏮</button>
+            <button id="btn-play-pause">▶</button>
+            <button class="ctrl-btn" id="btn-next" title="Próxima">⏭</button>
+            <div id="vol-wrap">
+              <span id="vol-icon">🔊</span>
+              <input type="range" id="vol-slider" min="0" max="100" value="80">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom tabs -->
+    <div id="bottom-area">
+      <div id="tabs">
+        <button class="tab active" id="tab-search" onclick="switchTab('search')">▸ BUSCAR MÚSICA</button>
+        <button class="tab" id="tab-queue" onclick="switchTab('queue')">♪ FILA (<span id="q-count">0</span>)</button>
+      </div>
+
+      <!-- Search panel -->
+      <div id="panel-search">
+        <div id="search-form">
+          <input type="text" id="search-input" placeholder="Buscar artista, música ou álbum...">
+          <button id="btn-search">BUSCAR</button>
+        </div>
+        <div id="search-results">
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-txt">BUSQUE UMA MÚSICA ACIMA</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue panel -->
+      <div id="panel-queue">
+        <div id="queue-list">
+          <div class="empty-state">
+            <div class="empty-icon">♪</div>
+            <div class="empty-txt">FILA VAZIA — ADICIONE MÚSICAS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="parts-panel">
+      <div class="panel-ttl">▸ PARTICIPANTES</div>
+      <div id="parts-list">
+        <div class="part">
+          <div class="p-av">DJ</div>
+          <div class="p-nm">dj_retro</div>
+          <span class="p-bdg">HOST</span>
+          <div class="p-dot green"></div>
+        </div>
+        <div class="part">
+          <div class="p-av">RK</div>
+          <div class="p-nm">rock_forever</div>
+          <div class="p-dot green"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-panel">
+      <div class="sec-hdr" style="padding:8px 12px 6px">
+        <span class="sec-ttl">▸ CHAT</span>
+      </div>
+      <div id="chat-msgs">
+        <div class="msg sys"><div class="msg-txt">▸ dj_retro criou a sala</div></div>
+        <div class="msg">
+          <div class="msg-hdr"><span class="msg-nick">DJ_RETRO</span><span class="msg-time">21:03</span></div>
+          <div class="msg-txt">bora ouvir umas clássicas 🎸</div>
+        </div>
+      </div>
+      <div id="chat-form">
+        <input type="text" id="chat-input" placeholder="Mensagem...">
+        <button id="btn-send">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── CONFIG ──
+  const CLIENT_ID   = '39a0cc09ee1243bab77d47989a6a311c';
+  const REDIRECT_URI = 'http://localhost:5500/room.html';
+
+  // ── STATE ──
+  let token = null;
+  let player = null;
+  let deviceId = null;
+  let queue = [];
+  let curIndex = -1;
+  let isPlaying = false;
+  let progressInterval = null;
+  let currentDuration = 0;
+  let currentPosition = 0;
+
+  // ── NICK ──
+  const myNick = localStorage.getItem('hynora_nick') || 'visitante';
+  const myInits = myNick.slice(0, 2).toUpperCase();
+  document.getElementById('nick-top').textContent = myNick;
+  document.getElementById('av-top').textContent = myInits;
+
+  // Adiciona user na lista de participantes
+  const pl = document.getElementById('parts-list');
+  const meEl = document.createElement('div');
+  meEl.className = 'part';
+  meEl.innerHTML = `<div class="p-av me">${esc(myInits)}</div><div class="p-nm">${esc(myNick)}</div><span class="p-bdg" style="color:#74c69d">VOCÊ</span><div class="p-dot"></div>`;
+  pl.insertBefore(meEl, pl.children[1]);
+
+  // ── UTILS ──
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function toast(m) {
+    const t = document.getElementById('toast');
+    t.textContent = m; t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+  function fmtMs(ms) {
+    const s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  function nowTime() {
+    const d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+
+  // ── SPOTIFY AUTH ──
+  async function getToken(code) {
+    const verifier = localStorage.getItem('pkce_verifier');
+    const body = new URLSearchParams({
+      client_id: CLIENT_ID,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+    });
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const data = await res.json();
+    if (data.access_token) {
+      token = data.access_token;
+      localStorage.setItem('spotify_token', token);
+      // Limpa URL
+      window.history.replaceState({}, '', 'room.html');
+      localStorage.removeItem('pkce_verifier');
+      localStorage.removeItem('pending_spotify_auth');
+      fetchUserInfo();
+    }
+  }
+
+  async function fetchUserInfo() {
+    const res = await fetch('https://api.spotify.com/v1/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    if (data.display_name) {
+      localStorage.setItem('spotify_display_name', data.display_name);
+      document.getElementById('sp-label').textContent = data.display_name;
+    }
+  }
+
+  async function refreshTokenIfNeeded() {
+    // Simple check: just re-auth if token fails
+  }
+
+  // ── SPOTIFY WEB PLAYBACK SDK ──
+  window.onSpotifyWebPlaybackSDKReady = () => {
+    if (!token) return;
+    player = new Spotify.Player({
+      name: 'Hynora Room',
+      getOAuthToken: cb => cb(token),
+      volume: 0.8,
+    });
+
+    player.addListener('ready', ({ device_id }) => {
+      deviceId = device_id;
+      toast('✓ PLAYER PRONTO!');
+      addSys('▸ Player Spotify conectado');
+    });
+
+    player.addListener('not_ready', () => {
+      toast('⚠ Player desconectado');
+    });
+
+    player.addListener('player_state_changed', state => {
+      if (!state) return;
+      isPlaying = !state.paused;
+      document.getElementById('btn-play-pause').textContent = isPlaying ? '⏸' : '▶';
+      document.getElementById('bars').classList.toggle('off', !isPlaying);
+      currentDuration = state.duration;
+      currentPosition = state.position;
+      updateProgress();
+
+      const track = state.track_window.current_track;
+      if (track) {
+        document.getElementById('np-track').textContent = track.name;
+        document.getElementById('np-artist').textContent = track.artists.map(a => a.name).join(', ');
+        const art = document.getElementById('album-art');
+        if (track.album.images[0]) {
+          art.innerHTML = `<img src="${track.album.images[0].url}" alt="">`;
+        }
+        document.getElementById('time-tot').textContent = fmtMs(state.duration);
+      }
+
+      // Progress ticker
+      clearInterval(progressInterval);
+      if (isPlaying) {
+        let pos = state.position;
+        progressInterval = setInterval(() => {
+          pos += 500;
+          if (pos > state.duration) { clearInterval(progressInterval); return; }
+          document.getElementById('time-cur').textContent = fmtMs(pos);
+          const pct = (pos / state.duration) * 100;
+          document.getElementById('progress-fill').style.width = pct + '%';
+        }, 500);
+      }
+    });
+
+    player.connect();
+  };
+
+  function updateProgress() {
+    document.getElementById('time-cur').textContent = fmtMs(currentPosition);
+    document.getElementById('time-tot').textContent = fmtMs(currentDuration);
+    const pct = currentDuration ? (currentPosition / currentDuration) * 100 : 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+
+  // ── SEARCH ──
+  async function searchTracks(query) {
+    if (!token) { toast('⚠ Conecte o Spotify'); return; }
+    const res = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`,
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    );
+    if (res.status === 401) { showNoSpotify(); return; }
+    const data = await res.json();
+    return data.tracks?.items || [];
+  }
+
+  function renderSearchResults(tracks) {
+    const el = document.getElementById('search-results');
+    if (!tracks || tracks.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">😕</div><div class="empty-txt">NENHUM RESULTADO</div></div>`;
+      return;
+    }
+    el.innerHTML = tracks.map((t, i) => `
+      <div class="track-card">
+        <span class="t-num">${i + 1}</span>
+        <div class="t-art">
+          ${t.album.images[2] ? `<img src="${t.album.images[2].url}" alt="">` : '♪'}
+        </div>
+        <div class="t-info">
+          <div class="t-name">${esc(t.name)}</div>
+          <div class="t-sub">${esc(t.artists.map(a => a.name).join(', '))} · ${esc(t.album.name)}</div>
+        </div>
+        <span class="t-dur">${fmtMs(t.duration_ms)}</span>
+        <button class="btn-play-now" title="Tocar agora" onclick="playNow('${t.uri}','${esc(t.name)}','${esc(t.artists[0].name)}','${t.album.images[0]?.url||''}')">▶</button>
+        <button class="btn-add-q" title="Adicionar à fila" onclick="addToQueue('${t.uri}','${esc(t.name)}','${esc(t.artists.map(a=>a.name).join(', '))}','${t.album.images[0]?.url||''}','${fmtMs(t.duration_ms)}')">+</button>
+      </div>
+    `).join('');
+  }
+
+  // ── PLAY ──
+  async function playNow(uri, name, artist, art) {
+    if (!token || !deviceId) { toast('⚠ Player não está pronto'); return; }
+    const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [uri] }),
+    });
+    if (res.status === 401) { showNoSpotify(); return; }
+    if (res.ok || res.status === 204) {
+      addSys(`▸ ${myNick} tocou "${name}"`);
+      toast('▶ TOCANDO AGORA');
+    } else {
+      toast('⚠ Erro ao tocar — verifique o Premium');
+    }
+  }
+
+  // ── QUEUE ──
+  function addToQueue(uri, name, artist, art, dur) {
+    if (queue.some(q => q.uri === uri)) { toast('JÁ ESTÁ NA FILA'); return; }
+    queue.push({ uri, name, artist, art, dur, addedBy: myNick });
+    renderQueue();
+    toast('✓ ADICIONADO À FILA!');
+    addSys(`▸ ${myNick} adicionou "${name}" à fila`);
+    document.getElementById('q-count').textContent = queue.length;
+  }
+
+  function renderQueue() {
+    const el = document.getElementById('queue-list');
+    document.getElementById('q-count').textContent = queue.length;
+    if (queue.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">♪</div><div class="empty-txt">FILA VAZIA</div></div>`;
+      return;
+    }
+    el.innerHTML = queue.map((it, i) => `
+      <div class="track-card ${i === curIndex ? 'playing' : ''}">
+        <span class="t-num">${i === curIndex ? '▶' : i + 1}</span>
+        <div class="t-art">${it.art ? `<img src="${it.art}" alt="">` : '♪'}</div>
+        <div class="t-info">
+          <div class="t-name">${esc(it.name)}</div>
+          <div class="t-sub">${esc(it.artist)} · por ${esc(it.addedBy)}</div>
+        </div>
+        <span class="t-dur">${esc(it.dur)}</span>
+        <button class="btn-play-now" title="Tocar" onclick="playFromQueue(${i})">▶</button>
+        <button class="q-rm" onclick="removeFromQueue(${i})" title="Remover">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function playFromQueue(i) {
+    curIndex = i;
+    const it = queue[i];
+    playNow(it.uri, it.name, it.artist, it.art);
+    renderQueue();
+  }
+
+  function removeFromQueue(i) {
+    if (i === curIndex) curIndex = -1;
+    else if (i < curIndex) curIndex--;
+    queue.splice(i, 1);
+    renderQueue();
+    toast('REMOVIDO DA FILA');
+  }
+
+  // ── CONTROLS ──
+  document.getElementById('btn-play-pause').addEventListener('click', () => {
+    if (!player) return;
+    player.togglePlay();
+  });
+  document.getElementById('btn-prev').addEventListener('click', () => { if (player) player.previousTrack(); });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if (curIndex < queue.length - 1) { playFromQueue(curIndex + 1); }
+    else { if (player) player.nextTrack(); }
+  });
+  document.getElementById('vol-slider').addEventListener('input', e => {
+    if (player) player.setVolume(e.target.value / 100);
+  });
+
+  // ── TABS ──
+  function switchTab(tab) {
+    document.getElementById('panel-search').style.display = tab === 'search' ? 'flex' : 'none';
+    document.getElementById('panel-queue').style.display = tab === 'queue' ? 'flex' : 'none';
+    document.getElementById('tab-search').classList.toggle('active', tab === 'search');
+    document.getElementById('tab-queue').classList.toggle('active', tab === 'queue');
+  }
+
+  // ── SEARCH EVENTS ──
+  document.getElementById('btn-search').addEventListener('click', async () => {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    const btn = document.getElementById('btn-search');
+    btn.textContent = '...'; btn.disabled = true;
+    const results = await searchTracks(q);
+    renderSearchResults(results);
+    btn.textContent = 'BUSCAR'; btn.disabled = false;
+  });
+  document.getElementById('search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-search').click();
+  });
+
+  // ── CHAT ──
+  function addSys(txt) {
+    const el = document.getElementById('chat-msgs');
+    const d = document.createElement('div');
+    d.className = 'msg sys';
+    d.innerHTML = `<div class="msg-txt">${esc(txt)}</div>`;
+    el.appendChild(d); el.scrollTop = el.scrollHeight;
+  }
+  function sendChat() {
+    const inp = document.getElementById('chat-input');
+    const txt = inp.value.trim(); if (!txt) return;
+    const el = document.getElementById('chat-msgs');
+    const d = document.createElement('div');
+    d.className = 'msg';
+    d.innerHTML = `<div class="msg-hdr"><span class="msg-nick me">${esc(myNick.toUpperCase())}</span><span class="msg-time">${nowTime()}</span></div><div class="msg-txt">${esc(txt)}</div>`;
+    el.appendChild(d); el.scrollTop = el.scrollHeight;
+    inp.value = '';
+  }
+  document.getElementById('btn-send').addEventListener('click', sendChat);
+  document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+  // ── NAV ──
+  document.getElementById('btn-leave').addEventListener('click', goHome);
+  function goHome() { window.location.href = 'index.html'; }
+
+  function showNoSpotify() {
+    document.getElementById('no-spotify').style.display = 'flex';
+  }
+  document.getElementById('btn-go-login').addEventListener('click', () => {
+    window.location.href = 'index.html';
+  });
+
+  // ── INIT ──
+  (async () => {
+    // Verifica se voltou do OAuth (tem code na URL)
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (code) {
+      await getToken(code);
+    } else {
+      token = localStorage.getItem('spotify_token');
+    }
+
+    if (!token) {
+      showNoSpotify();
+      return;
+    }
+
+    fetchUserInfo();
+    addSys(`▸ ${myNick} entrou na sala`);
+  })();
+</script>
+</body>
+</html>

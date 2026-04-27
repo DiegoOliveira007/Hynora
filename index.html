@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hynora</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green:       #40916C;
+      --green-dark:  #174732;
+      --green-deep:  #0d2b1e;
+      --green-light: #52b788;
+      --green-pale:  #74c69d;
+      --bg:          #0a1510;
+      --border:      rgba(64,145,108,0.25);
+      --border2:     rgba(64,145,108,0.55);
+      --text:        #d8f3dc;
+      --muted:       #74c69d;
+      --spotify:     #1DB954;
+      --spotify-dk:  #158a3e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Pixelify Sans', monospace;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.045) 3px, rgba(0,0,0,0.045) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+
+    /* BG glow */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 55% at 50% 50%, rgba(64,145,108,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse at 5% 95%, rgba(29,185,84,0.06) 0%, transparent 40%),
+        radial-gradient(ellipse at 95% 5%, rgba(23,71,50,0.15) 0%, transparent 40%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* pixel grid */
+    .bg-grid {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(64,145,108,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(64,145,108,0.025) 1px, transparent 1px);
+      background-size: 32px 32px;
+      z-index: 0;
+    }
+
+    /* floating notes */
+    .note {
+      position: fixed;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--green-dark);
+      opacity: 0.5;
+      animation: floatUp linear infinite;
+      pointer-events: none; z-index: 0;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(105vh); opacity: 0; }
+      8%   { opacity: 0.5; }
+      92%  { opacity: 0.5; }
+      100% { transform: translateY(-8vh); opacity: 0; }
+    }
+
+    /* container */
+    #container {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* logo */
+    #logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 38px;
+      color: var(--green);
+      text-shadow: 4px 4px 0 var(--green-dark), 8px 8px 0 rgba(23,71,50,0.35);
+      letter-spacing: 4px;
+      animation: glitch 7s infinite;
+    }
+    @keyframes glitch {
+      0%,93%,100% { text-shadow: 4px 4px 0 var(--green-dark), 8px 8px 0 rgba(23,71,50,0.35); }
+      94% { text-shadow: -2px 0 #1DB954, 2px 0 var(--green-dark); transform: skewX(-1deg); }
+      95% { text-shadow: 2px 0 var(--green), -2px 0 #1DB954; transform: skewX(1deg); }
+      96% { text-shadow: 4px 4px 0 var(--green-dark), 8px 8px 0 rgba(23,71,50,0.35); transform: none; }
+    }
+    #logo-sub {
+      font-size: 10px; color: var(--green-light);
+      letter-spacing: 6px; text-transform: uppercase; opacity: 0.65;
+      text-align: center; margin-top: -16px;
+    }
+
+    /* card */
+    #card {
+      background: rgba(10,21,16,0.85);
+      border: 1.5px solid var(--border2);
+      border-radius: 14px;
+      padding: 30px 34px;
+      width: 340px;
+      display: flex; flex-direction: column; gap: 18px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 0 50px rgba(64,145,108,0.08), inset 0 0 0 1px rgba(64,145,108,0.04);
+    }
+
+    .field-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px; color: var(--muted);
+      letter-spacing: 2px; margin-bottom: 6px;
+    }
+
+    #nick-input {
+      width: 100%;
+      background: rgba(0,0,0,0.5);
+      border: 1.5px solid var(--green-dark);
+      border-radius: 6px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-family: 'Pixelify Sans', monospace;
+      font-size: 15px; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      text-align: center; letter-spacing: 1px;
+    }
+    #nick-input:focus { border-color: var(--green); box-shadow: 0 0 10px rgba(64,145,108,0.15); }
+    #nick-input::placeholder { color: rgba(116,198,157,0.3); letter-spacing: 2px; }
+
+    #nick-error { font-size: 10px; color: #e07070; text-align: center; min-height: 14px; }
+
+    /* divider */
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .divider span { font-size: 9px; color: var(--muted); white-space: nowrap; }
+
+    /* Spotify btn */
+    #btn-spotify {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: 'Pixelify Sans', monospace;
+      font-size: 13px; font-weight: 600; letter-spacing: 1px;
+      padding: 12px;
+      background: var(--spotify);
+      border: none; border-radius: 6px;
+      color: #000; cursor: pointer;
+      transition: all 0.2s;
+    }
+    #btn-spotify:hover { background: #1ed760; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(29,185,84,0.3); }
+    #btn-spotify:active { transform: translateY(1px); }
+    #btn-spotify svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    /* enter btn */
+    #btn-enter {
+      width: 100%;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; letter-spacing: 2px;
+      padding: 13px;
+      background: transparent;
+      border: 2px solid var(--green);
+      border-radius: 6px; color: var(--green);
+      cursor: pointer; transition: all 0.22s;
+      position: relative; overflow: hidden;
+    }
+    #btn-enter::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--green);
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.22s; z-index: 0;
+    }
+    #btn-enter:hover::before { transform: scaleX(1); }
+    #btn-enter:hover { color: var(--bg); }
+    #btn-enter span { position: relative; z-index: 1; }
+
+    /* status spotify */
+    #spotify-status {
+      display: none;
+      align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: rgba(29,185,84,0.1);
+      border: 1px solid rgba(29,185,84,0.3);
+      border-radius: 6px; font-size: 11px; color: #1ed760;
+    }
+    #spotify-status .dot { width: 7px; height: 7px; border-radius: 50%; background: #1DB954; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* deco dots */
+    .deco { display: flex; justify-content: center; gap: 7px; }
+    .deco-d { width: 5px; height: 5px; border-radius: 50%; background: var(--green-dark); transition: background 0.3s; }
+    .deco-d.on { background: var(--green); }
+
+    #footer { font-size: 9px; color: rgba(116,198,157,0.3); letter-spacing: 1px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="note" style="left:7%;animation-duration:17s;animation-delay:0s">♪</div>
+<div class="note" style="left:19%;animation-duration:23s;animation-delay:4s">♫</div>
+<div class="note" style="left:34%;animation-duration:15s;animation-delay:8s">♩</div>
+<div class="note" style="left:54%;animation-duration:21s;animation-delay:1s">♬</div>
+<div class="note" style="left:69%;animation-duration:26s;animation-delay:6s">♪</div>
+<div class="note" style="left:84%;animation-duration:18s;animation-delay:10s">♫</div>
+<div class="note" style="left:93%;animation-duration:20s;animation-delay:3s">♩</div>
+
+<div id="container">
+  <div id="logo">HYNORA</div>
+  <div id="logo-sub">▸ music rooms</div>
+
+  <div id="card">
+    <!-- Spotify conectado -->
+    <div id="spotify-status">
+      <div class="dot"></div>
+      <span id="spotify-user-label">Spotify conectado</span>
+    </div>
+
+    <!-- Nick -->
+    <div>
+      <div class="field-label">seu nick na sala</div>
+      <input type="text" id="nick-input" placeholder="pixel_user_99" maxlength="20" autocomplete="off" spellcheck="false">
+      <div id="nick-error"></div>
+    </div>
+
+    <div class="divider"><span>conecte o spotify para tocar músicas</span></div>
+
+    <!-- Botão Spotify -->
+    <button id="btn-spotify">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      CONECTAR SPOTIFY
+    </button>
+
+    <!-- Entrar -->
+    <button id="btn-enter"><span>▸ ENTRAR NA SALA</span></button>
+
+    <div class="deco">
+      <div class="deco-d on" id="d1"></div>
+      <div class="deco-d on" id="d2"></div>
+      <div class="deco-d" id="d3"></div>
+      <div class="deco-d" id="d4"></div>
+    </div>
+  </div>
+
+  <div id="footer">SPOTIFY PREMIUM NECESSÁRIO PARA TOCAR MÚSICAS COMPLETAS</div>
+</div>
+
+<script>
+  const CLIENT_ID = '39a0cc09ee1243bab77d47989a6a311c';
+  const REDIRECT_URI = 'http://localhost:5500/room.html';
+  const SCOPES = [
+    'streaming',
+    'user-read-email',
+    'user-read-private',
+    'user-read-playback-state',
+    'user-modify-playback-state'
+  ].join(' ');
+
+  const nickInput = document.getElementById('nick-input');
+  const nickError = document.getElementById('nick-error');
+  const btnSpotify = document.getElementById('btn-spotify');
+  const btnEnter = document.getElementById('btn-enter');
+  const dots = [1,2,3,4].map(i => document.getElementById('d'+i));
+
+  // Recupera nick salvo
+  const saved = localStorage.getItem('hynora_nick');
+  if (saved) { nickInput.value = saved; dots.forEach(d => d.classList.add('on')); }
+
+  // Verifica se já tem token Spotify
+  const token = localStorage.getItem('spotify_token');
+  if (token) showSpotifyConnected();
+
+  nickInput.addEventListener('input', () => {
+    nickError.textContent = '';
+    const l = nickInput.value.trim().length;
+    dots.forEach((d, i) => d.classList.toggle('on', i < Math.ceil(l / 5)));
+    if (l >= 20) dots.forEach(d => d.classList.add('on'));
+  });
+
+  function showSpotifyConnected() {
+    const st = document.getElementById('spotify-status');
+    st.style.display = 'flex';
+    btnSpotify.textContent = '✓ SPOTIFY CONECTADO';
+    btnSpotify.style.background = '#158a3e';
+    btnSpotify.style.cursor = 'default';
+    const spUser = localStorage.getItem('spotify_display_name');
+    if (spUser) document.getElementById('spotify-user-label').textContent = 'Conectado como ' + spUser;
+  }
+
+  // OAuth PKCE
+  async function sha256(plain) {
+    const enc = new TextEncoder().encode(plain);
+    const hash = await crypto.subtle.digest('SHA-256', enc);
+    return hash;
+  }
+  function base64urlencode(a) {
+    return btoa(String.fromCharCode(...new Uint8Array(a)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  async function generateCodeChallenge(verifier) {
+    const hashed = await sha256(verifier);
+    return base64urlencode(hashed);
+  }
+  function generateVerifier() {
+    const arr = new Uint8Array(56);
+    crypto.getRandomValues(arr);
+    return base64urlencode(arr);
+  }
+
+  btnSpotify.addEventListener('click', async () => {
+    if (localStorage.getItem('spotify_token')) return;
+    const verifier = generateVerifier();
+    const challenge = await generateCodeChallenge(verifier);
+    localStorage.setItem('pkce_verifier', verifier);
+
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      response_type: 'code',
+      redirect_uri: REDIRECT_URI,
+      scope: SCOPES,
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+    });
+
+    // Salva nick antes de redirecionar
+    const nick = nickInput.value.trim();
+    if (nick) localStorage.setItem('hynora_nick', nick);
+    localStorage.setItem('pending_spotify_auth', '1');
+
+    window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+  });
+
+  btnEnter.addEventListener('click', () => {
+    const nick = nickInput.value.trim();
+    if (!nick) { nickError.textContent = '⚠ insira um nick'; nickInput.focus(); return; }
+    if (nick.length < 2) { nickError.textContent = '⚠ nick muito curto'; return; }
+    if (!/^[a-zA-Z0-9_\-.]+$/.test(nick)) { nickError.textContent = '⚠ use apenas letras, números e _ - .'; return; }
+    localStorage.setItem('hynora_nick', nick);
+    document.getElementById('container').style.transition = 'opacity 0.3s';
+    document.getElementById('container').style.opacity = '0';
+    setTimeout(() => window.location.href = 'room.html', 300);
+  });
+</script>
+</body>
+</html>
