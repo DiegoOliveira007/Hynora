@@ -64,3 +64,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log('Rodando na porta ' + PORT));
 app.use(express.static('public'));
+
+app.get('/room', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'room.html'));
+  });
