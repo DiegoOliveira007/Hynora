@@ -96,8 +96,8 @@
 
     /* YouTube iframe container — hidden but active */
     #yt-iframe-wrap {
-      width: 88px; height: 88px; flex-shrink: 0;
-      border-radius: 6px; overflow: hidden;
+      width: 130px; height: 130px; flex-shrink: 0;
+      border-radius: 8px; overflow: hidden;
       border: 2px solid var(--green-dark);
       position: relative; background: #000;
     }
@@ -115,12 +115,12 @@
     }
 
     #player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
-    #np-track { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #np-artist { font-size: 11px; color: var(--muted); }
+    #np-track { font-size: 17px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #np-artist { font-size: 13px; color: var(--muted); }
     #progress-wrap { display: flex; align-items: center; gap: 8px; }
     #progress-bar {
       flex: 1; height: 4px; background: var(--green-dark);
-      border-radius: 2px; overflow: hidden; cursor: pointer;
+      border-radius: 2px; overflow: hidden; cursor: default;
     }
     #progress-fill { height: 100%; background: var(--yt); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
     .prog-time { font-size: 9px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -286,12 +286,12 @@
     #chat-msgs::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
     .msg { display: flex; flex-direction: column; gap: 2px; }
     .msg-hdr { display: flex; align-items: center; gap: 5px; }
-    .msg-nick { font-family: 'Press Start 2P', monospace; font-size: 5px; color: var(--green-light); }
+    .msg-nick { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--green-light); }
     .msg-nick.me { color: var(--yt); }
-    .msg-time { font-size: 9px; color: rgba(116,198,157,0.3); }
-    .msg-txt { font-size: 11px; color: var(--text); line-height: 1.4; word-break: break-word; }
+    .msg-time { font-size: 10px; color: rgba(116,198,157,0.3); }
+    .msg-txt { font-size: 13px; color: var(--text); line-height: 1.4; word-break: break-word; }
     .msg.sys .msg-hdr { display: none; }
-    .msg.sys .msg-txt { font-size: 9px; color: var(--muted); font-style: italic; }
+    .msg.sys .msg-txt { font-size: 11px; color: var(--muted); font-style: italic; }
     #chat-form {
       display: flex; gap: 5px; padding: 6px 12px 8px;
       border-top: 1px solid var(--border); flex-shrink: 0;
@@ -506,8 +506,8 @@
   // ── YOUTUBE IFRAME API ──
   window.onYouTubeIframeAPIReady = () => {
     ytPlayer = new YT.Player('yt-player', {
-      height: '88',
-      width: '88',
+      height: '130',
+      width: '130',
       videoId: '',
       playerVars: {
         autoplay: 0,
@@ -632,28 +632,42 @@
 
   socket.on('toast', (msg) => toast(msg));
 
-  // ── SEARCH via YouTube Data API (via server proxy) ──
-  // Falls back to invidious public API which doesn't require key
+  // ── SEARCH via múltiplas instâncias Invidious (sem API key) ──
+  const INVIDIOUS_INSTANCES = [
+    'https://inv.nadeko.net',
+    'https://invidious.privacydev.net',
+    'https://vid.puffyan.us',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.lunar.icu',
+  ];
+
   async function searchYouTube(query) {
-    try {
-      // Use Invidious public instance as search proxy (no API key needed)
-      const res = await fetch(
-        `https://inv.nadeko.net/api/v1/search?q=${encodeURIComponent(query)}&type=video&fields=videoId,title,author,lengthSeconds,videoThumbnails`
-      );
-      if (!res.ok) throw new Error('search failed');
-      const data = await res.json();
-      return data.slice(0, 10).map(v => ({
-        uri: v.videoId,
-        name: v.title,
-        artist: v.author,
-        dur: fmtSec(v.lengthSeconds),
-        art: (v.videoThumbnails?.find(t=>t.quality==='medium') || v.videoThumbnails?.[0])?.url || '',
-      }));
-    } catch(e) {
-      console.error('Search error:', e);
-      toast('⚠ Erro na busca, tente o link direto', true);
-      return [];
+    const fields = 'videoId,title,author,lengthSeconds,videoThumbnails';
+    for (const base of INVIDIOUS_INSTANCES) {
+      try {
+        const res = await fetch(
+          `${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video&fields=${fields}`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) continue;
+        return data.slice(0, 10).map(v => ({
+          uri: v.videoId,
+          name: v.title,
+          artist: v.author,
+          dur: fmtSec(v.lengthSeconds),
+          art: (v.videoThumbnails?.find(t => t.quality === 'medium') || v.videoThumbnails?.[0])?.url || '',
+        }));
+      } catch(e) {
+        console.warn('Invidious instance failed:', base, e.message);
+        // try next
+      }
     }
+    // All instances failed
+    console.error('All Invidious instances failed');
+    toast('⚠ Busca falhou — tente cole um link direto do YouTube', true);
+    return [];
   }
 
   function renderSearchResults(tracks) {
@@ -700,7 +714,12 @@
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">♪</div><div class="empty-txt">FILA VAZIA</div></div>`;
       return;
     }
-    el.innerHTML = queue.map((it,i) => `
+    el.innerHTML = queue.map((it,i) => {
+      const isOwner = (it.addedBy === myNick);
+      const rmBtn = isOwner
+        ? `<button class="icon-btn btn-rm" title="Remover da fila" onclick="emitRemoveQueue('${esc(it.uri)}')">✕</button>`
+        : `<span style="width:20px;flex-shrink:0"></span>`;
+      return `
       <div class="track-card">
         <span class="t-num">${i+1}</span>
         <div class="t-art">${it.art ? `<img src="${it.art}" alt="">` : '♪'}</div>
@@ -709,9 +728,9 @@
           <div class="t-sub">${esc(it.artist)} · por ${esc(it.addedBy||'?')}</div>
         </div>
         <span class="t-dur">${esc(it.dur||'')}</span>
-        <button class="icon-btn btn-play-now" onclick='emitPlay(${JSON.stringify(it)})'>▶</button>
-        <button class="icon-btn btn-rm" onclick="emitRemoveQueue('${esc(it.uri)}')">✕</button>
-      </div>`).join('');
+        ${rmBtn}
+      </div>`;
+    }).join('');
   }
 
   // ── PARTICIPANTS ──
@@ -785,9 +804,9 @@
     }
   });
 
-  // Prev/Next cycle through queue
+  // Prev/Next cycle through queue — prev removed (no individual seek allowed)
   document.getElementById('btn-prev').addEventListener('click', () => {
-    if (ytPlayer && ytReady) ytPlayer.seekTo(0, true);
+    toast('⚠ SEEK DESATIVADO — SALA SINCRONIZADA', true);
   });
   document.getElementById('btn-next').addEventListener('click', () => {
     if (queue.length > 0) {
@@ -801,14 +820,8 @@
 
   document.getElementById('vol-slider').addEventListener('input', e => setVolume(Number(e.target.value)));
 
-  // Progress bar click to seek
-  document.getElementById('progress-bar').addEventListener('click', (e) => {
-    if (!ytPlayer || !ytReady) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    const dur = ytPlayer.getDuration() || 0;
-    ytPlayer.seekTo(pct * dur, true);
-  });
+  // Progress bar is display-only — seeking is disabled to keep all users in sync
+  // document.getElementById('progress-bar') click intentionally not bound
 
   document.getElementById('btn-send').addEventListener('click', sendChat);
   document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key==='Enter') sendChat(); });
@@ -824,21 +837,42 @@
     btn.textContent = 'BUSCAR'; btn.disabled = false;
   });
 
-  // URL / link direct play
-  document.getElementById('btn-url').addEventListener('click', () => {
+  // URL / link direct play — busca título real antes de tocar
+  document.getElementById('btn-url').addEventListener('click', async () => {
     const raw = document.getElementById('url-input').value.trim();
     if (!raw) return;
     const videoId = extractVideoId(raw);
     if (!videoId) { toast('⚠ Link inválido', true); return; }
-    // Build a minimal track from the ID — title will show after playing
-    const track = {
+
+    const btn = document.getElementById('btn-url');
+    btn.textContent = '...'; btn.disabled = true;
+
+    let track = {
       uri: videoId,
       name: 'YouTube: ' + videoId,
       artist: '—',
       dur: '',
       art: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
     };
+
+    // Tenta buscar título real via Invidious
+    for (const base of INVIDIOUS_INSTANCES) {
+      try {
+        const res = await fetch(`${base}/api/v1/videos/${videoId}?fields=title,author,lengthSeconds`,
+          { signal: AbortSignal.timeout(4000) });
+        if (!res.ok) continue;
+        const d = await res.json();
+        if (d.title) {
+          track.name   = d.title;
+          track.artist = d.author || '—';
+          track.dur    = fmtSec(d.lengthSeconds);
+        }
+        break;
+      } catch(e) { /* try next */ }
+    }
+
     document.getElementById('url-input').value = '';
+    btn.textContent = '▶'; btn.disabled = false;
     emitPlay(track);
   });
   document.getElementById('url-input').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-url').click(); });
