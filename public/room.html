@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="/socket.io/socket.io.js"></script>
-  <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <style>
     :root {
       --green:       #40916C;
@@ -22,7 +21,7 @@
       --border2:     rgba(64,145,108,0.5);
       --text:        #d8f3dc;
       --muted:       #74c69d;
-      --spotify:     #1DB954;
+      --yt:          #FF0000;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -56,13 +55,13 @@
       font-size: 9px; padding: 2px 8px; border-radius: 3px;
       background: var(--surface); border: 1px solid var(--border); color: var(--muted);
     }
-    #sp-badge {
+    #yt-badge {
       display: flex; align-items: center; gap: 5px;
       font-size: 9px; padding: 3px 9px; border-radius: 3px;
-      background: rgba(29,185,84,0.1); border: 1px solid rgba(29,185,84,0.25);
-      color: var(--spotify);
+      background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.25);
+      color: #ff6b6b;
     }
-    #sp-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--spotify); animation: pulse 2s infinite; }
+    #yt-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yt); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     #user-top { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
     .av-sm {
@@ -94,15 +93,27 @@
       border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     #player-box { display: flex; align-items: center; gap: 16px; }
-    #album-art {
+
+    /* YouTube iframe container — hidden but active */
+    #yt-iframe-wrap {
       width: 88px; height: 88px; flex-shrink: 0;
-      border-radius: 6px; background: var(--green-deep);
-      border: 2px solid var(--green-dark); overflow: hidden;
+      border-radius: 6px; overflow: hidden;
+      border: 2px solid var(--green-dark);
+      position: relative; background: #000;
+    }
+    #yt-iframe-wrap iframe {
+      width: 100%; height: 100%;
+      border: none; display: block;
+    }
+    /* Thumbnail overlay (shown when nothing playing) */
+    #yt-thumb {
+      position: absolute; inset: 0;
+      background: var(--green-deep);
       display: flex; align-items: center; justify-content: center;
       font-size: 28px; color: var(--green-dark);
-      transition: all 0.3s;
+      transition: opacity 0.3s;
     }
-    #album-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
     #player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
     #np-track { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #np-artist { font-size: 11px; color: var(--muted); }
@@ -111,7 +122,7 @@
       flex: 1; height: 4px; background: var(--green-dark);
       border-radius: 2px; overflow: hidden; cursor: pointer;
     }
-    #progress-fill { height: 100%; background: var(--spotify); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
+    #progress-fill { height: 100%; background: var(--yt); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
     .prog-time { font-size: 9px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
     #controls { display: flex; align-items: center; gap: 10px; }
     .ctrl-btn {
@@ -122,11 +133,11 @@
     .ctrl-btn:hover { color: var(--text); }
     #btn-play-pause {
       width: 36px; height: 36px; border-radius: 50%;
-      background: var(--spotify); border: none; cursor: pointer;
+      background: var(--yt); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px; color: #000; transition: all 0.15s;
+      font-size: 14px; color: #fff; transition: all 0.15s;
     }
-    #btn-play-pause:hover { background: #1ed760; transform: scale(1.06); }
+    #btn-play-pause:hover { background: #ff3333; transform: scale(1.06); }
     #vol-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
     #vol-slider {
       -webkit-appearance: none; width: 70px; height: 3px;
@@ -138,14 +149,14 @@
     }
     .bars { display: flex; gap: 2px; align-items: flex-end; height: 14px; flex-shrink: 0; }
     .bars .b {
-      width: 3px; background: var(--spotify); border-radius: 1px; height: 40%;
+      width: 3px; background: var(--yt); border-radius: 1px; height: 40%;
       animation: bounce 0.9s ease-in-out infinite;
     }
     .bars .b:nth-child(2){animation-delay:.15s} .bars .b:nth-child(3){animation-delay:.3s} .bars .b:nth-child(4){animation-delay:.08s}
     .bars.off .b { animation-play-state: paused; height: 25% !important; }
     @keyframes bounce { 0%,100%{height:25%} 50%{height:100%} }
 
-    /* ── BOTTOM (TABS) ── */
+    /* ── BOTTOM TABS ── */
     #bottom-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
     #tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .tab {
@@ -160,7 +171,7 @@
     .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .panel.hidden { display: none; }
 
-    #search-form, #add-url-form {
+    #search-form {
       display: flex; gap: 8px; padding: 9px 16px;
       border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
@@ -182,6 +193,13 @@
     .green-btn:hover { background: var(--green); color: var(--bg); }
     .green-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* URL paste form */
+    #url-form {
+      display: flex; gap: 8px; padding: 6px 16px 9px;
+      flex-shrink: 0;
+    }
+    #url-form .text-inp { font-size: 11px; }
+
     .scroll-list { flex: 1; overflow-y: auto; padding: 6px 16px; }
     .scroll-list::-webkit-scrollbar { width: 3px; }
     .scroll-list::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
@@ -199,7 +217,7 @@
       font-family: 'Press Start 2P', monospace; font-size: 6px;
       color: var(--green-dark); width: 14px; text-align: center; flex-shrink: 0;
     }
-    .track-card.playing .t-num { color: var(--spotify); }
+    .track-card.playing .t-num { color: var(--yt); }
     .t-art {
       width: 42px; height: 42px; border-radius: 4px;
       background: var(--green-deep); border: 1px solid var(--green-dark);
@@ -216,8 +234,8 @@
       background: transparent; border: none; cursor: pointer;
       padding: 4px; border-radius: 3px; transition: all 0.15s; flex-shrink: 0; line-height: 1;
     }
-    .btn-play-now { font-size: 14px; color: rgba(29,185,84,0.4); }
-    .btn-play-now:hover { color: var(--spotify); }
+    .btn-play-now { font-size: 14px; color: rgba(255,0,0,0.4); }
+    .btn-play-now:hover { color: var(--yt); }
     .btn-add-q { font-size: 16px; color: var(--green-dark); }
     .btn-add-q:hover { color: var(--green); }
     .btn-rm { font-size: 12px; color: rgba(200,80,80,0.35); }
@@ -253,10 +271,10 @@
       display: flex; align-items: center; justify-content: center;
       font-family: 'Press Start 2P', monospace; font-size: 5px; color: var(--green); flex-shrink: 0;
     }
-    .p-av.me { border-color: var(--spotify); }
+    .p-av.me { border-color: var(--yt); }
     .p-nm { font-size: 11px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .p-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green-light); flex-shrink: 0; }
-    .p-dot.sp { background: var(--spotify); }
+    .p-dot.me { background: var(--yt); }
 
     /* ── CHAT ── */
     #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -269,7 +287,7 @@
     .msg { display: flex; flex-direction: column; gap: 2px; }
     .msg-hdr { display: flex; align-items: center; gap: 5px; }
     .msg-nick { font-family: 'Press Start 2P', monospace; font-size: 5px; color: var(--green-light); }
-    .msg-nick.me { color: var(--spotify); }
+    .msg-nick.me { color: var(--yt); }
     .msg-time { font-size: 9px; color: rgba(116,198,157,0.3); }
     .msg-txt { font-size: 11px; color: var(--text); line-height: 1.4; word-break: break-word; }
     .msg.sys .msg-hdr { display: none; }
@@ -307,41 +325,11 @@
     }
     #toast.show { transform: translateX(-50%) translateY(0); }
 
-    /* ── NO SPOTIFY OVERLAY ── */
-    #no-spotify {
-      display: none; position: fixed; inset: 0; z-index: 1000;
-      background: rgba(10,21,16,0.95); backdrop-filter: blur(10px);
-      align-items: center; justify-content: center;
-    }
-    #no-spotify-box {
-      background: rgba(10,21,16,0.99); border: 1.5px solid var(--border2);
-      border-radius: 12px; padding: 32px 36px; text-align: center;
-      display: flex; flex-direction: column; gap: 16px; align-items: center;
-    }
-    #no-spotify-box h2 { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--green); }
-    #no-spotify-box p { font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.6; }
-    .sp-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 8px; letter-spacing: 2px;
-      padding: 12px 24px; background: var(--spotify); border: none;
-      border-radius: 6px; color: #000; cursor: pointer; transition: all 0.2s;
-    }
-    .sp-btn:hover { background: #1ed760; }
-
     ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
   </style>
 </head>
 <body>
-
-<!-- No Spotify overlay -->
-<div id="no-spotify">
-  <div id="no-spotify-box">
-    <div style="font-size:32px">🎵</div>
-    <h2>SPOTIFY NÃO CONECTADO</h2>
-    <p>Conecte sua conta Spotify Premium na tela inicial para usar o player.</p>
-    <button class="sp-btn" onclick="window.location.href='/'">▸ IR PARA LOGIN</button>
-  </div>
-</div>
 
 <!-- TOPBAR -->
 <div id="topbar">
@@ -349,7 +337,7 @@
   <span style="color:var(--green-dark)">▸</span>
   <span style="font-family:'Press Start 2P',monospace;font-size:7px;color:var(--green-light)">sala global</span>
   <span class="tbadge" id="cnt-badge">0 online</span>
-  <div id="sp-badge"><div class="dot"></div><span id="sp-label">Spotify</span></div>
+  <div id="yt-badge"><div class="dot"></div><span>YouTube</span></div>
   <div id="user-top">
     <div class="av-sm" id="av-top">?</div>
     <span id="nick-top">...</span>
@@ -361,10 +349,15 @@
   <!-- CENTER -->
   <div id="center">
 
-    <!-- Player Spotify -->
+    <!-- Player -->
     <div id="player-area">
       <div id="player-box">
-        <div id="album-art"><span id="art-placeholder">♪</span></div>
+        <!-- YouTube iframe (tiny, serves as actual player) -->
+        <div id="yt-iframe-wrap">
+          <div id="yt-thumb">♪</div>
+          <div id="yt-player"></div>
+        </div>
+
         <div id="player-info">
           <div id="np-track">Nenhuma música tocando</div>
           <div id="np-artist">—</div>
@@ -377,9 +370,9 @@
             <div class="bars off" id="bars">
               <div class="b"></div><div class="b"></div><div class="b"></div><div class="b"></div>
             </div>
-            <button class="ctrl-btn" id="btn-prev">⏮</button>
+            <button class="ctrl-btn" id="btn-prev" title="Anterior">⏮</button>
             <button id="btn-play-pause">▶</button>
-            <button class="ctrl-btn" id="btn-next">⏭</button>
+            <button class="ctrl-btn" id="btn-next" title="Próximo">⏭</button>
             <div id="vol-wrap">
               <span style="font-size:11px;color:var(--muted)">🔊</span>
               <input type="range" id="vol-slider" min="0" max="100" value="80">
@@ -399,8 +392,13 @@
       <!-- Search -->
       <div class="panel" id="panel-search">
         <div id="search-form">
-          <input class="text-inp" type="text" id="search-input" placeholder="Buscar artista, música ou álbum...">
+          <input class="text-inp" type="text" id="search-input" placeholder="Buscar no YouTube...">
           <button class="green-btn" id="btn-search">BUSCAR</button>
+        </div>
+        <!-- URL direct paste -->
+        <div id="url-form">
+          <input class="text-inp" type="text" id="url-input" placeholder="Ou cole um link do YouTube aqui...">
+          <button class="green-btn" id="btn-url">▶</button>
         </div>
         <div class="scroll-list" id="search-results">
           <div class="empty-state">
@@ -448,17 +446,16 @@
 
 <div id="toast"></div>
 
-<script>
-  // ── CONFIG ──
-  const CLIENT_ID    = '39a0cc09ee1243bab77d47989a6a311c';
-  const REDIRECT_URI = 'https://hynoraa.onrender.com/room';
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
 
+<script>
   // ── ESTADO ──
-  let token    = null;
-  let player   = null;
-  let deviceId = null;
-  let queue    = [];
-  let isPlaying = false;
+  let ytPlayer   = null;
+  let ytReady    = false;
+  let queue      = [];
+  let isPlaying  = false;
+  let currentTrack = null;
   let progressInterval = null;
 
   // ── NICK ──
@@ -480,13 +477,113 @@
     clearTimeout(t._tid);
     t._tid = setTimeout(() => t.classList.remove('show'), 2800);
   }
-  function fmtMs(ms) {
-    const s = Math.floor((ms||0)/1000);
+  function fmtSec(s) {
+    s = Math.floor(s || 0);
     return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
   }
   function nowTime() {
     const d = new Date();
     return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  }
+
+  // Extract YouTube video ID from various URL formats
+  function extractVideoId(url) {
+    url = url.trim();
+    // Direct ID (11 chars)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0];
+      if (u.hostname.includes('youtube.com')) {
+        return u.searchParams.get('v') || (u.pathname.startsWith('/embed/') ? u.pathname.split('/')[2] : null);
+      }
+    } catch(e) {}
+    // fallback regex
+    const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  // ── YOUTUBE IFRAME API ──
+  window.onYouTubeIframeAPIReady = () => {
+    ytPlayer = new YT.Player('yt-player', {
+      height: '88',
+      width: '88',
+      videoId: '',
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        disablekb: 1,
+        fs: 0,
+        modestbranding: 1,
+        rel: 0,
+        iv_load_policy: 3,
+        origin: window.location.origin,
+      },
+      events: {
+        onReady: () => {
+          ytReady = true;
+          setVolume(80);
+          toast('✓ PLAYER PRONTO!');
+        },
+        onStateChange: (e) => {
+          // YT.PlayerState: PLAYING=1, PAUSED=2, ENDED=0, BUFFERING=3
+          if (e.data === YT.PlayerState.PLAYING) {
+            isPlaying = true;
+            document.getElementById('btn-play-pause').textContent = '⏸';
+            document.getElementById('bars').classList.remove('off');
+            document.getElementById('yt-thumb').style.opacity = '0';
+            startProgressLoop();
+          } else if (e.data === YT.PlayerState.PAUSED) {
+            isPlaying = false;
+            document.getElementById('btn-play-pause').textContent = '▶';
+            document.getElementById('bars').classList.add('off');
+            clearInterval(progressInterval);
+          } else if (e.data === YT.PlayerState.ENDED) {
+            isPlaying = false;
+            document.getElementById('btn-play-pause').textContent = '▶';
+            document.getElementById('bars').classList.add('off');
+            clearInterval(progressInterval);
+            // Play next in queue automatically
+            if (queue.length > 0) {
+              const next = queue[0];
+              socket.emit('removeQueue', next.uri);
+              socket.emit('playTrack', next);
+            }
+          }
+        },
+      }
+    });
+  };
+
+  function setVolume(v) {
+    if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(v);
+  }
+
+  function startProgressLoop() {
+    clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
+      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+      const cur = ytPlayer.getCurrentTime() || 0;
+      const dur = ytPlayer.getDuration() || 0;
+      document.getElementById('time-cur').textContent  = fmtSec(cur);
+      document.getElementById('time-tot').textContent  = fmtSec(dur);
+      document.getElementById('progress-fill').style.width = dur ? (cur/dur*100)+'%' : '0%';
+    }, 500);
+  }
+
+  // Play a track object and seek to positionMs
+  function syncPlay(track, positionMs) {
+    currentTrack = track;
+    if (!ytReady || !ytPlayer) return;
+
+    const videoId = track.uri; // we store videoId as uri
+    document.getElementById('np-track').textContent  = track.name;
+    document.getElementById('np-artist').textContent = track.artist;
+    if (track.art) {
+      document.getElementById('yt-thumb').innerHTML = `<img src="${track.art}" style="width:100%;height:100%;object-fit:cover">`;
+    }
+
+    ytPlayer.loadVideoById({ videoId, startSeconds: Math.max(0, Math.floor((positionMs||0)/1000)) });
   }
 
   // ── SOCKET.IO ──
@@ -496,15 +593,11 @@
     socket.emit('join', myNick);
   });
 
-  // Recebe estado inicial ao entrar
   socket.on('welcome', (state) => {
-    // Atualiza lista de usuários
     renderUsers(state.users);
-    // Atualiza fila
     queue = state.queue || [];
     renderQueue();
-    // Se tem música tocando, sincroniza
-    if (state.currentTrack && deviceId) {
+    if (state.currentTrack) {
       syncPlay(state.currentTrack, state.position || 0);
     }
     addChatSys('▸ bem-vindo à sala global!');
@@ -519,18 +612,17 @@
     addChatMsg(nick, message, system);
   });
 
-  // Alguém tocou uma música — todos devem tocar
   socket.on('playTrack', ({ track, startedAt }) => {
     const position = Date.now() - startedAt;
     syncPlay(track, position);
   });
 
   socket.on('pause', () => {
-    if (player) player.pause();
+    if (ytPlayer && ytReady) ytPlayer.pauseVideo();
   });
 
   socket.on('resume', () => {
-    if (player) player.resume();
+    if (ytPlayer && ytReady) ytPlayer.playVideo();
   });
 
   socket.on('queue', (q) => {
@@ -540,123 +632,28 @@
 
   socket.on('toast', (msg) => toast(msg));
 
-  // ── SPOTIFY AUTH ──
-  async function getToken(code) {
-    const verifier = localStorage.getItem('pkce_verifier');
-    if (!verifier) return null;
-    const body = new URLSearchParams({
-      client_id: CLIENT_ID,
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: REDIRECT_URI,
-      code_verifier: verifier,
-    });
+  // ── SEARCH via YouTube Data API (via server proxy) ──
+  // Falls back to invidious public API which doesn't require key
+  async function searchYouTube(query) {
     try {
-      const res = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      });
+      // Use Invidious public instance as search proxy (no API key needed)
+      const res = await fetch(
+        `https://inv.nadeko.net/api/v1/search?q=${encodeURIComponent(query)}&type=video&fields=videoId,title,author,lengthSeconds,videoThumbnails`
+      );
+      if (!res.ok) throw new Error('search failed');
       const data = await res.json();
-      if (data.access_token) {
-        localStorage.setItem('spotify_token', data.access_token);
-        localStorage.removeItem('pkce_verifier');
-        window.history.replaceState({}, '', '/room');
-        return data.access_token;
-      }
-    } catch(e) { console.error(e); }
-    return null;
-  }
-
-  async function fetchUserInfo(t) {
-    try {
-      const res = await fetch('https://api.spotify.com/v1/me', { headers: { 'Authorization': 'Bearer ' + t } });
-      const data = await res.json();
-      if (data.display_name) {
-        localStorage.setItem('spotify_display_name', data.display_name);
-        document.getElementById('sp-label').textContent = data.display_name;
-      }
-    } catch(e) {}
-  }
-
-  // ── SPOTIFY SDK ──
-  window.onSpotifyWebPlaybackSDKReady = () => {
-    if (!token) return;
-    player = new Spotify.Player({
-      name: 'Hynora 🎵',
-      getOAuthToken: cb => cb(token),
-      volume: 0.8,
-    });
-
-    player.addListener('ready', ({ device_id }) => {
-      deviceId = device_id;
-      toast('✓ SPOTIFY PRONTO!');
-    });
-
-    player.addListener('not_ready', () => {
-      toast('⚠ Player desconectado', true);
-      deviceId = null;
-    });
-
-    player.addListener('player_state_changed', state => {
-      if (!state) return;
-      isPlaying = !state.paused;
-      document.getElementById('btn-play-pause').textContent = isPlaying ? '⏸' : '▶';
-      document.getElementById('bars').classList.toggle('off', !isPlaying);
-
-      const track = state.track_window.current_track;
-      if (track) {
-        document.getElementById('np-track').textContent  = track.name;
-        document.getElementById('np-artist').textContent = track.artists.map(a=>a.name).join(', ');
-        document.getElementById('time-tot').textContent  = fmtMs(state.duration);
-
-        const art = document.getElementById('album-art');
-        if (track.album.images[0]) {
-          art.innerHTML = `<img src="${track.album.images[0].url}" alt="">`;
-        }
-      }
-
-      // Progresso
-      clearInterval(progressInterval);
-      if (isPlaying) {
-        let pos = state.position;
-        const dur = state.duration;
-        progressInterval = setInterval(() => {
-          pos = Math.min(pos + 500, dur);
-          document.getElementById('time-cur').textContent  = fmtMs(pos);
-          document.getElementById('progress-fill').style.width = (pos/dur*100)+'%';
-        }, 500);
-      }
-    });
-
-    player.connect();
-  };
-
-  // Toca/sincroniza uma faixa com posição (ms)
-  async function syncPlay(track, positionMs) {
-    if (!deviceId) return;
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [track.uri], position_ms: Math.max(0, positionMs) }),
-    });
-    document.getElementById('np-track').textContent  = track.name;
-    document.getElementById('np-artist').textContent = track.artist;
-    if (track.art) {
-      document.getElementById('album-art').innerHTML = `<img src="${track.art}" alt="">`;
+      return data.slice(0, 10).map(v => ({
+        uri: v.videoId,
+        name: v.title,
+        artist: v.author,
+        dur: fmtSec(v.lengthSeconds),
+        art: (v.videoThumbnails?.find(t=>t.quality==='medium') || v.videoThumbnails?.[0])?.url || '',
+      }));
+    } catch(e) {
+      console.error('Search error:', e);
+      toast('⚠ Erro na busca, tente o link direto', true);
+      return [];
     }
-  }
-
-  // ── SEARCH ──
-  async function searchTracks(query) {
-    if (!token) { toast('⚠ Conecte o Spotify', true); return []; }
-    const res = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`,
-      { headers: { 'Authorization': 'Bearer '+token } }
-    );
-    if (res.status === 401) { showNoSpotify(); return []; }
-    const data = await res.json();
-    return data.tracks?.items || [];
   }
 
   function renderSearchResults(tracks) {
@@ -668,23 +665,22 @@
     el.innerHTML = tracks.map((t,i) => `
       <div class="track-card">
         <span class="t-num">${i+1}</span>
-        <div class="t-art">${t.album.images[2] ? `<img src="${t.album.images[2].url}" alt="">` : '♪'}</div>
+        <div class="t-art">${t.art ? `<img src="${t.art}" alt="" onerror="this.parentNode.textContent='♪'">` : '♪'}</div>
         <div class="t-info">
           <div class="t-name">${esc(t.name)}</div>
-          <div class="t-sub">${esc(t.artists.map(a=>a.name).join(', '))} · ${esc(t.album.name)}</div>
+          <div class="t-sub">${esc(t.artist)}</div>
         </div>
-        <span class="t-dur">${fmtMs(t.duration_ms)}</span>
+        <span class="t-dur">${esc(t.dur||'')}</span>
         <button class="icon-btn btn-play-now" title="Tocar agora para todos"
-          onclick='emitPlay(${JSON.stringify({uri:t.uri,name:t.name,artist:t.artists.map(a=>a.name).join(", "),art:t.album.images[0]?.url||"",dur:t.duration_ms})})'>▶</button>
+          onclick='emitPlay(${JSON.stringify(t)})'>▶</button>
         <button class="icon-btn btn-add-q" title="Adicionar à fila"
-          onclick='emitAddQueue(${JSON.stringify({uri:t.uri,name:t.name,artist:t.artists.map(a=>a.name).join(", "),art:t.album.images[0]?.url||"",dur:fmtMs(t.duration_ms)})})'>+</button>
+          onclick='emitAddQueue(${JSON.stringify(t)})'>+</button>
       </div>`).join('');
   }
 
   // ── EMIT AÇÕES ──
   function emitPlay(track) {
     socket.emit('playTrack', track);
-    // Toca localmente também imediatamente
     syncPlay(track, 0);
   }
 
@@ -696,7 +692,7 @@
     socket.emit('removeQueue', uri);
   }
 
-  // ── QUEUE LOCAL ──
+  // ── QUEUE ──
   function renderQueue() {
     const el = document.getElementById('queue-list');
     document.getElementById('q-count').textContent = queue.length;
@@ -730,7 +726,7 @@
       <div class="part">
         <div class="p-av ${nick===myNick?'me':''}">${esc(nick.slice(0,2).toUpperCase())}</div>
         <div class="p-nm">${esc(nick)}${nick===myNick?' (você)':''}</div>
-        <div class="p-dot ${nick===myNick?'sp':''}"></div>
+        <div class="p-dot ${nick===myNick?'me':''}"></div>
       </div>`).join('');
   }
 
@@ -779,18 +775,40 @@
 
   // ── CONTROLS ──
   document.getElementById('btn-play-pause').addEventListener('click', () => {
-    if (!player) return;
+    if (!ytReady) return;
     if (isPlaying) {
-      player.pause();
+      ytPlayer.pauseVideo();
       socket.emit('pause');
     } else {
-      player.resume();
+      ytPlayer.playVideo();
       socket.emit('resume');
     }
   });
-  document.getElementById('btn-prev').addEventListener('click', () => { if (player) player.previousTrack(); });
-  document.getElementById('btn-next').addEventListener('click', () => { if (player) player.nextTrack(); });
-  document.getElementById('vol-slider').addEventListener('input', e => { if (player) player.setVolume(e.target.value/100); });
+
+  // Prev/Next cycle through queue
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    if (ytPlayer && ytReady) ytPlayer.seekTo(0, true);
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if (queue.length > 0) {
+      const next = queue[0];
+      socket.emit('removeQueue', next.uri);
+      emitPlay(next);
+    } else {
+      toast('FILA VAZIA', true);
+    }
+  });
+
+  document.getElementById('vol-slider').addEventListener('input', e => setVolume(Number(e.target.value)));
+
+  // Progress bar click to seek
+  document.getElementById('progress-bar').addEventListener('click', (e) => {
+    if (!ytPlayer || !ytReady) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const dur = ytPlayer.getDuration() || 0;
+    ytPlayer.seekTo(pct * dur, true);
+  });
 
   document.getElementById('btn-send').addEventListener('click', sendChat);
   document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key==='Enter') sendChat(); });
@@ -801,30 +819,31 @@
     if (!q) return;
     const btn = document.getElementById('btn-search');
     btn.textContent = '...'; btn.disabled = true;
-    const results = await searchTracks(q);
+    const results = await searchYouTube(q);
     renderSearchResults(results);
     btn.textContent = 'BUSCAR'; btn.disabled = false;
   });
 
+  // URL / link direct play
+  document.getElementById('btn-url').addEventListener('click', () => {
+    const raw = document.getElementById('url-input').value.trim();
+    if (!raw) return;
+    const videoId = extractVideoId(raw);
+    if (!videoId) { toast('⚠ Link inválido', true); return; }
+    // Build a minimal track from the ID — title will show after playing
+    const track = {
+      uri: videoId,
+      name: 'YouTube: ' + videoId,
+      artist: '—',
+      dur: '',
+      art: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+    };
+    document.getElementById('url-input').value = '';
+    emitPlay(track);
+  });
+  document.getElementById('url-input').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-url').click(); });
+
   document.getElementById('btn-leave').addEventListener('click', () => { window.location.href = '/'; });
-
-  function showNoSpotify() { document.getElementById('no-spotify').style.display = 'flex'; }
-
-  // ── INIT ──
-  (async () => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-
-    if (code) {
-      token = await getToken(code);
-    } else {
-      token = localStorage.getItem('spotify_token');
-    }
-
-    if (!token) { showNoSpotify(); return; }
-
-    fetchUserInfo(token);
-  })();
 </script>
 </body>
 </html>
