@@ -82,7 +82,11 @@
       flex: 1; display: grid;
       grid-template-columns: 1fr 285px;
       overflow: hidden; position: relative; z-index: 1;
+      transition: grid-template-columns 0.28s ease;
     }
+    #main.chat-hidden { grid-template-columns: 1fr 0px; }
+    #sidebar { transition: opacity 0.25s ease; overflow: hidden; }
+    #main.chat-hidden #sidebar { opacity: 0; pointer-events: none; }
 
     /* ── CENTER ── */
     #center { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
@@ -312,6 +316,47 @@
     }
     #btn-send:hover { background: var(--green); color: var(--bg); }
 
+    /* ── CLOSE CHAT BTN ── */
+    #btn-close-chat {
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(116,198,157,0.45); font-size: 14px; padding: 2px 4px;
+      border-radius: 3px; transition: color 0.15s; line-height: 1;
+    }
+    #btn-close-chat:hover { color: #e07070; }
+
+    /* ── BTN OPEN CHAT (mobile flutuante) ── */
+    #btn-open-chat {
+      display: none;
+      position: fixed; bottom: 18px; right: 16px; z-index: 500;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--green-dark); border: 2px solid var(--green);
+      color: var(--green-light); font-size: 18px;
+      cursor: pointer; align-items: center; justify-content: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: background 0.2s;
+    }
+    #btn-open-chat:hover { background: var(--green); color: var(--bg); }
+    #btn-open-chat.visible { display: flex; }
+
+    /* ── SIDEBAR MOBILE ── */
+    @media (max-width: 640px) {
+      #main { grid-template-columns: 1fr !important; }
+      #sidebar {
+        position: fixed; top: 0; right: 0; bottom: 0;
+        width: min(300px, 90vw);
+        background: rgba(10,21,16,0.98);
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+        transition: transform 0.3s ease, opacity 0.3s ease !important;
+        z-index: 400;
+        display: flex; flex-direction: column;
+        opacity: 1 !important; pointer-events: auto !important;
+      }
+      #sidebar.chat-open-mobile { transform: translateX(0); }
+      #main.chat-hidden #sidebar { transform: translateX(100%) !important; opacity: 1 !important; }
+      #btn-close-chat { font-size: 18px; color: rgba(116,198,157,0.6); }
+    }
+
     /* ── TOAST ── */
     #toast {
       position: fixed; bottom: 18px; left: 50%;
@@ -370,9 +415,7 @@
             <div class="bars off" id="bars">
               <div class="b"></div><div class="b"></div><div class="b"></div><div class="b"></div>
             </div>
-            <button class="ctrl-btn" id="btn-prev" title="Anterior">⏮</button>
-            <button id="btn-play-pause">▶</button>
-            <button class="ctrl-btn" id="btn-next" title="Próximo">⏭</button>
+            <button id="btn-play-pause" disabled title="Reprodução automática">▶</button>
             <div id="vol-wrap">
               <span style="font-size:11px;color:var(--muted)">🔊</span>
               <input type="range" id="vol-slider" min="0" max="100" value="80">
@@ -427,6 +470,7 @@
     <div id="chat-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px 6px;border-bottom:1px solid var(--border);flex-shrink:0">
         <span style="font-family:'Press Start 2P',monospace;font-size:6px;color:var(--green);letter-spacing:2px">▸ CHAT</span>
+        <button id="btn-close-chat" title="Fechar chat" onclick="toggleChat()">✕</button>
       </div>
       <div id="chat-msgs"></div>
       <div id="chat-form">
@@ -437,6 +481,7 @@
   </div>
 </div>
 
+<button id="btn-open-chat" title="Abrir chat" onclick="toggleChat()">💬</button>
 <div id="toast"></div>
 
 <!-- YouTube IFrame API -->
@@ -536,11 +581,13 @@
             document.getElementById('btn-play-pause').textContent = '▶';
             document.getElementById('bars').classList.add('off');
             clearInterval(progressInterval);
-            // Play next in queue automatically
+            // Play next in queue automatically, or clear player if queue is empty
             if (queue.length > 0) {
               const next = queue[0];
               socket.emit('removeQueue', next.uri);
-              socket.emit('playTrack', next);
+              emitPlay(next);
+            } else {
+              clearPlayer();
             }
           }
         },
@@ -578,6 +625,59 @@
 
     ytPlayer.loadVideoById({ videoId, startSeconds: Math.max(0, Math.floor((positionMs||0)/1000)) });
   }
+
+  // Clear player when queue runs out
+  function clearPlayer() {
+    currentTrack = null;
+    if (ytPlayer && ytReady) ytPlayer.stopVideo();
+    document.getElementById('np-track').textContent  = 'Nenhuma música tocando';
+    document.getElementById('np-artist').textContent = '—';
+    document.getElementById('yt-thumb').style.opacity = '1';
+    document.getElementById('yt-thumb').innerHTML = '♪';
+    document.getElementById('progress-fill').style.width = '0%';
+    document.getElementById('time-cur').textContent = '0:00';
+    document.getElementById('time-tot').textContent = '0:00';
+    document.getElementById('bars').classList.add('off');
+    clearInterval(progressInterval);
+  }
+
+  // Toggle chat sidebar (mobile)
+  function isMobile() { return window.innerWidth <= 640; }
+
+  function toggleChat() {
+    const main    = document.getElementById('main');
+    const sidebar = document.getElementById('sidebar');
+    const openBtn = document.getElementById('btn-open-chat');
+
+    if (isMobile()) {
+      // Mobile: slide in/out via transform
+      const isOpen = sidebar.classList.toggle('chat-open-mobile');
+      openBtn.classList.toggle('visible', !isOpen);
+    } else {
+      // Desktop: collapse grid column
+      const hidden = main.classList.toggle('chat-hidden');
+      openBtn.classList.toggle('visible', hidden);
+    }
+  }
+
+  function initLayout() {
+    const main    = document.getElementById('main');
+    const sidebar = document.getElementById('sidebar');
+    const openBtn = document.getElementById('btn-open-chat');
+    if (isMobile()) {
+      // Mobile starts with chat closed
+      main.classList.remove('chat-hidden');
+      sidebar.classList.remove('chat-open-mobile');
+      openBtn.classList.add('visible');
+    } else {
+      // Desktop starts with chat open (normal grid)
+      main.classList.remove('chat-hidden');
+      sidebar.classList.remove('chat-open-mobile');
+      openBtn.classList.remove('visible');
+    }
+  }
+  initLayout();
+  window.addEventListener('resize', initLayout);
 
   // ── SOCKET.IO ──
   const socket = io();
@@ -735,30 +835,9 @@
   }
 
   // ── CONTROLS ──
-  document.getElementById('btn-play-pause').addEventListener('click', () => {
-    if (!ytReady) return;
-    if (isPlaying) {
-      ytPlayer.pauseVideo();
-      socket.emit('pause');
-    } else {
-      ytPlayer.playVideo();
-      socket.emit('resume');
-    }
-  });
+  // btn-play-pause is disabled — playback is automatic and controlled by the queue
 
-  // Prev/Next cycle through queue — prev removed (no individual seek allowed)
-  document.getElementById('btn-prev').addEventListener('click', () => {
-    toast('⚠ SEEK DESATIVADO — SALA SINCRONIZADA', true);
-  });
-  document.getElementById('btn-next').addEventListener('click', () => {
-    if (queue.length > 0) {
-      const next = queue[0];
-      socket.emit('removeQueue', next.uri);
-      emitPlay(next);
-    } else {
-      toast('FILA VAZIA', true);
-    }
-  });
+  // No prev/next controls — playback is fully automatic via queue
 
   document.getElementById('vol-slider').addEventListener('input', e => setVolume(Number(e.target.value)));
 
