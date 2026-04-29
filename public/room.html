@@ -499,8 +499,16 @@
   // ── NICK ──
   const myNick  = localStorage.getItem('hynora_nick') || 'visitante_' + Math.floor(Math.random()*999);
   const myInits = myNick.slice(0,2).toUpperCase();
+  const myAvatar = localStorage.getItem('hynora_avatar');
   document.getElementById('nick-top').textContent = myNick;
-  document.getElementById('av-top').textContent   = myInits;
+  const avTop = document.getElementById('av-top');
+  if (myAvatar) {
+    avTop.innerHTML = `<img src="${myAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:3px">`;
+    avTop.style.padding = '0';
+    avTop.style.overflow = 'hidden';
+  } else {
+    avTop.textContent = myInits;
+  }
 
   // ── UTILS ──
   function esc(s) {
@@ -683,22 +691,20 @@
   const socket = io();
 
   socket.on('connect', () => {
-    socket.emit('join', myNick);
+    const avatar = localStorage.getItem('hynora_avatar') || null;
+    socket.emit('join', { nick: myNick, avatar });
   });
 
   socket.on('welcome', (state) => {
-    renderUsers(state.users);
+    renderUsers(state.users || []);
     queue = state.queue || [];
     renderQueue();
-    if (state.currentTrack) {
-      syncPlay(state.currentTrack, state.position || 0);
-    }
+    if (state.currentTrack) syncPlay(state.currentTrack, state.position || 0);
     addChatSys('▸ bem-vindo à sala global!');
   });
 
   socket.on('users', (users) => {
     renderUsers(users);
-    document.getElementById('cnt-badge').textContent = users.length + ' online';
   });
 
   socket.on('chat', ({ nick, message, system }) => {
@@ -775,23 +781,48 @@
     }).join('');
   }
 
+  // ── AVATARES dos outros usuários (nick → dataUrl)
+  const avatarMap = {};
+
   // ── PARTICIPANTS ──
   function renderUsers(users) {
     const el = document.getElementById('parts-list');
     document.getElementById('cnt-badge').textContent = users.length + ' online';
+
+    // Atualiza mapa de avatares
+    users.forEach(u => {
+      if (u.avatar) avatarMap[u.nick] = u.avatar;
+    });
+
     if (!users.length) {
       el.innerHTML = `<div class="empty-state" style="height:40px"><div class="empty-txt">NINGUÉM</div></div>`;
       return;
     }
-    el.innerHTML = users.map(nick => `
-      <div class="part">
-        <div class="p-av ${nick===myNick?'me':''}">${esc(nick.slice(0,2).toUpperCase())}</div>
-        <div class="p-nm">${esc(nick)}${nick===myNick?' (você)':''}</div>
-        <div class="p-dot ${nick===myNick?'me':''}"></div>
-      </div>`).join('');
+    el.innerHTML = users.map(u => {
+      const nick   = u.nick;
+      const av     = u.avatar;
+      const isMe   = nick === myNick;
+      const avHtml = av
+        ? `<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`
+        : esc(nick.slice(0,2).toUpperCase());
+      return `
+        <div class="part">
+          <div class="p-av ${isMe?'me':''}" style="${av?'padding:0;overflow:hidden;':''}">${avHtml}</div>
+          <div class="p-nm">${esc(nick)}${isMe?' (você)':''}</div>
+          <div class="p-dot ${isMe?'me':''}"></div>
+        </div>`;
+    }).join('');
   }
 
   // ── CHAT ──
+  function avatarHtml(nick, size) {
+    const av = avatarMap[nick] || (nick === myNick ? localStorage.getItem('hynora_avatar') : null);
+    const s  = size || 20;
+    if (av) {
+      return `<img src="${av}" style="width:${s}px;height:${s}px;border-radius:3px;object-fit:cover;flex-shrink:0;border:1px solid var(--green-dark)">`;
+    }
+    return `<div style="width:${s}px;height:${s}px;border-radius:3px;background:var(--green-deep);border:1px solid var(--green-dark);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:5px;color:var(--green);flex-shrink:0">${esc(nick.slice(0,2).toUpperCase())}</div>`;
+  }
   function addChatSys(txt) {
     const el = document.getElementById('chat-msgs');
     const d = document.createElement('div');
@@ -802,19 +833,23 @@
 
   function addChatMsg(nick, message, system) {
     const el = document.getElementById('chat-msgs');
-    const d = document.createElement('div');
+    const d  = document.createElement('div');
     if (system) {
       d.className = 'msg sys';
       d.innerHTML = `<div class="msg-txt">${esc(message)}</div>`;
     } else {
-      d.className = 'msg';
       const isMe = nick === myNick;
+      d.className = 'msg';
+      d.style.cssText = 'display:flex;gap:7px;align-items:flex-start';
       d.innerHTML = `
-        <div class="msg-hdr">
-          <span class="msg-nick${isMe?' me':''}">${esc(nick.toUpperCase())}</span>
-          <span class="msg-time">${nowTime()}</span>
-        </div>
-        <div class="msg-txt">${esc(message)}</div>`;
+        ${avatarHtml(nick, 24)}
+        <div style="flex:1;min-width:0">
+          <div class="msg-hdr">
+            <span class="msg-nick${isMe?' me':''}">${esc(nick.toUpperCase())}</span>
+            <span class="msg-time">${nowTime()}</span>
+          </div>
+          <div class="msg-txt">${esc(message)}</div>
+        </div>`;
     }
     el.appendChild(d); el.scrollTop = el.scrollHeight;
   }

@@ -31,30 +31,32 @@ io.on('connection', (socket) => {
   console.log('Conexão:', socket.id);
 
   // Usuário entrou na sala
-  socket.on('join', (nick) => {
-    // Evita nick duplicado — adiciona número se precisar
-    let finalNick = nick;
+  socket.on('join', ({ nick, avatar }) => {
+    let finalNick = String(nick || 'user').slice(0, 20);
     let count = 1;
     while (users.some(u => u.nick === finalNick)) {
       finalNick = nick + '_' + count++;
     }
 
-    socket.nick = finalNick;
-    users.push({ id: socket.id, nick: finalNick });
+    // Avatar: string base64 curta (64x64 JPEG ~3KB), limita tamanho
+    const safeAvatar = (typeof avatar === 'string' && avatar.startsWith('data:image') && avatar.length < 20000)
+      ? avatar : null;
+
+    socket.nick   = finalNick;
+    socket.avatar = safeAvatar;
+    users.push({ id: socket.id, nick: finalNick, avatar: safeAvatar });
 
     // Manda estado atual só para quem entrou
     socket.emit('welcome', {
       nick: finalNick,
-      users: users.map(u => u.nick),
+      users: users.map(u => ({ nick: u.nick, avatar: u.avatar })),
       queue,
       currentTrack,
       isPlaying,
-      // posição estimada da música atual
       position: (isPlaying && startedAt) ? Date.now() - startedAt : 0,
     });
 
-    // Avisa todos os outros
-    io.emit('users', users.map(u => u.nick));
+    io.emit('users', users.map(u => ({ nick: u.nick, avatar: u.avatar })));
     io.emit('chat', { nick: 'sistema', message: `${finalNick} entrou na sala ♪`, system: true });
   });
 
@@ -116,7 +118,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (!socket.nick) return;
     users = users.filter(u => u.id !== socket.id);
-    io.emit('users', users.map(u => u.nick));
+    io.emit('users', users.map(u => ({ nick: u.nick, avatar: u.avatar })));
     io.emit('chat', { nick: 'sistema', message: `${socket.nick} saiu`, system: true });
     console.log('Saiu:', socket.nick);
   });
