@@ -65,21 +65,22 @@ io.on('connection', (socket) => {
     io.emit('chat', { nick: socket.nick, message: safe, system: false });
   });
 
-  // Tocar música agora (broadcast para todos)
+  // Tocar música — só aceita se não tiver nada tocando (chamado pelo cliente que colou link e sala estava vazia)
   socket.on('playTrack', (track) => {
     if (!socket.nick) return;
+    track.addedBy = socket.nick;
     currentTrack = track;
     isPlaying = true;
     startedAt = Date.now();
 
     io.emit('playTrack', { track, startedAt });
-    io.emit('chat', { nick: 'sistema', message: `${socket.nick} colocou: ${track.name} — ${track.artist}`, system: true });
+    io.emit('chat', { nick: 'sistema', message: `${socket.nick} tocando: ${track.name} — ${track.artist}`, system: true });
   });
 
-  // Adicionar à fila
+  // Adicionar à fila — usado quando já tem algo tocando
   socket.on('addQueue', (track) => {
     if (!socket.nick) return;
-    // Evita duplicata
+    // Evita duplicata na fila
     if (queue.some(q => q.uri === track.uri)) {
       socket.emit('toast', 'JÁ ESTÁ NA FILA');
       return;

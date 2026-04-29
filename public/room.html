@@ -385,26 +385,19 @@
     <!-- Tabs -->
     <div id="bottom-area">
       <div id="tabs">
-        <button class="tab active" onclick="switchTab('search')">▸ BUSCAR MÚSICA</button>
+        <button class="tab active" onclick="switchTab('search')">+ ADICIONAR LINK</button>
         <button class="tab" onclick="switchTab('queue')">♪ FILA (<span id="q-count">0</span>)</button>
       </div>
 
-      <!-- Search -->
+      <!-- Adicionar por link -->
       <div class="panel" id="panel-search">
-        <div id="search-form">
-          <input class="text-inp" type="text" id="search-input" placeholder="Buscar no YouTube...">
-          <button class="green-btn" id="btn-search">BUSCAR</button>
-        </div>
-        <!-- URL direct paste -->
-        <div id="url-form">
-          <input class="text-inp" type="text" id="url-input" placeholder="Ou cole um link do YouTube aqui...">
-          <button class="green-btn" id="btn-url">▶</button>
-        </div>
-        <div class="scroll-list" id="search-results">
-          <div class="empty-state">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-txt">BUSQUE UMA MÚSICA ACIMA</div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <div style="font-family:'Press Start 2P',monospace;font-size:6px;color:var(--muted);letter-spacing:2px;">COLE O LINK DO YOUTUBE</div>
+          <div style="display:flex;gap:8px;">
+            <input class="text-inp" type="text" id="url-input" placeholder="https://youtube.com/watch?v=...">
+            <button class="green-btn" id="btn-url">+FILA</button>
           </div>
+          <div id="url-status" style="font-size:11px;color:var(--muted);min-height:16px;"></div>
         </div>
       </div>
 
@@ -632,65 +625,14 @@
 
   socket.on('toast', (msg) => toast(msg));
 
-  // ── SEARCH via múltiplas instâncias Invidious (sem API key) ──
+  // Invidious — só para buscar metadados (duração) de links colados
   const INVIDIOUS_INSTANCES = [
     'https://inv.nadeko.net',
     'https://invidious.privacydev.net',
-    'https://vid.puffyan.us',
     'https://invidious.nerdvpn.de',
     'https://invidious.lunar.icu',
+    'https://iv.melmac.space',
   ];
-
-  async function searchYouTube(query) {
-    const fields = 'videoId,title,author,lengthSeconds,videoThumbnails';
-    for (const base of INVIDIOUS_INSTANCES) {
-      try {
-        const res = await fetch(
-          `${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video&fields=${fields}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) continue;
-        return data.slice(0, 10).map(v => ({
-          uri: v.videoId,
-          name: v.title,
-          artist: v.author,
-          dur: fmtSec(v.lengthSeconds),
-          art: (v.videoThumbnails?.find(t => t.quality === 'medium') || v.videoThumbnails?.[0])?.url || '',
-        }));
-      } catch(e) {
-        console.warn('Invidious instance failed:', base, e.message);
-        // try next
-      }
-    }
-    // All instances failed
-    console.error('All Invidious instances failed');
-    toast('⚠ Busca falhou — tente cole um link direto do YouTube', true);
-    return [];
-  }
-
-  function renderSearchResults(tracks) {
-    const el = document.getElementById('search-results');
-    if (!tracks.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">😕</div><div class="empty-txt">NENHUM RESULTADO</div></div>`;
-      return;
-    }
-    el.innerHTML = tracks.map((t,i) => `
-      <div class="track-card">
-        <span class="t-num">${i+1}</span>
-        <div class="t-art">${t.art ? `<img src="${t.art}" alt="" onerror="this.parentNode.textContent='♪'">` : '♪'}</div>
-        <div class="t-info">
-          <div class="t-name">${esc(t.name)}</div>
-          <div class="t-sub">${esc(t.artist)}</div>
-        </div>
-        <span class="t-dur">${esc(t.dur||'')}</span>
-        <button class="icon-btn btn-play-now" title="Tocar agora para todos"
-          onclick='emitPlay(${JSON.stringify(t)})'>▶</button>
-        <button class="icon-btn btn-add-q" title="Adicionar à fila"
-          onclick='emitAddQueue(${JSON.stringify(t)})'>+</button>
-      </div>`).join('');
-  }
 
   // ── EMIT AÇÕES ──
   function emitPlay(track) {
@@ -825,55 +767,71 @@
 
   document.getElementById('btn-send').addEventListener('click', sendChat);
   document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key==='Enter') sendChat(); });
-  document.getElementById('search-input').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-search').click(); });
-
-  document.getElementById('btn-search').addEventListener('click', async () => {
-    const q = document.getElementById('search-input').value.trim();
-    if (!q) return;
-    const btn = document.getElementById('btn-search');
-    btn.textContent = '...'; btn.disabled = true;
-    const results = await searchYouTube(q);
-    renderSearchResults(results);
-    btn.textContent = 'BUSCAR'; btn.disabled = false;
-  });
-
-  // URL / link direct play — busca título real antes de tocar
+  // URL / link — adiciona à fila (ou toca imediatamente se não tiver nada tocando)
   document.getElementById('btn-url').addEventListener('click', async () => {
     const raw = document.getElementById('url-input').value.trim();
     if (!raw) return;
     const videoId = extractVideoId(raw);
-    if (!videoId) { toast('⚠ Link inválido', true); return; }
+    if (!videoId) { toast('\u26a0 Link inválido', true); return; }
 
     const btn = document.getElementById('btn-url');
+    const statusEl = document.getElementById('url-status');
     btn.textContent = '...'; btn.disabled = true;
+    statusEl.textContent = 'Buscando informações do vídeo...';
 
     let track = {
       uri: videoId,
-      name: 'YouTube: ' + videoId,
-      artist: '—',
+      name: '',
+      artist: '',
       dur: '',
       art: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
     };
 
-    // Tenta buscar título real via Invidious
-    for (const base of INVIDIOUS_INSTANCES) {
-      try {
-        const res = await fetch(`${base}/api/v1/videos/${videoId}?fields=title,author,lengthSeconds`,
-          { signal: AbortSignal.timeout(4000) });
-        if (!res.ok) continue;
+    // Estratégia 1: oEmbed do YouTube — sempre funciona, retorna título e canal
+    try {
+      const res = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (res.ok) {
         const d = await res.json();
-        if (d.title) {
-          track.name   = d.title;
-          track.artist = d.author || '—';
-          track.dur    = fmtSec(d.lengthSeconds);
-        }
-        break;
-      } catch(e) { /* try next */ }
+        if (d.title)        track.name   = d.title;
+        if (d.author_name)  track.artist = d.author_name;
+      }
+    } catch(e) { /* fallback abaixo */ }
+
+    // Estratégia 2: Invidious sem ?fields (mais compatível) — pega duração
+    if (!track.name || !track.dur) {
+      for (const base of INVIDIOUS_INSTANCES) {
+        try {
+          const res = await fetch(`${base}/api/v1/videos/${videoId}`,
+            { signal: AbortSignal.timeout(4000) });
+          if (!res.ok) continue;
+          const d = await res.json();
+          if (!track.name   && d.title)         track.name   = d.title;
+          if (!track.artist && d.author)        track.artist = d.author;
+          if (!track.dur    && d.lengthSeconds) track.dur    = fmtSec(d.lengthSeconds);
+          break;
+        } catch(e) { /* try next */ }
+      }
     }
 
+    // Fallback final se ainda não tiver nada
+    if (!track.name)   track.name   = 'YouTube: ' + videoId;
+    if (!track.artist) track.artist = '—';
+
+    statusEl.textContent = '';
     document.getElementById('url-input').value = '';
-    btn.textContent = '▶'; btn.disabled = false;
-    emitPlay(track);
+    btn.textContent = '+FILA'; btn.disabled = false;
+
+    // Se não tiver nada tocando, toca agora; senão adiciona à fila
+    if (!currentTrack) {
+      emitPlay(track);
+    } else {
+      emitAddQueue(track);
+      toast('\u266a ADICIONADO À FILA: ' + track.name.slice(0,30));
+      switchTab('queue');
+    }
   });
   document.getElementById('url-input').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-url').click(); });
 
