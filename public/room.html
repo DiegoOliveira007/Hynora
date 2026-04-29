@@ -491,6 +491,7 @@
   // ── ESTADO ──
   let ytPlayer   = null;
   let ytReady    = false;
+  let pendingSync = null; // guarda o sync enquanto o player não está pronto
   let queue      = [];
   let isPlaying  = false;
   let currentTrack = null;
@@ -570,6 +571,14 @@
           ytReady = true;
           setVolume(80);
           toast('✓ PLAYER PRONTO!');
+          // Se chegou sync do servidor antes do player estar pronto, aplica agora
+          if (pendingSync) {
+            const { track, positionMs, serverTs } = pendingSync;
+            pendingSync = null;
+            // Recalcula posição levando em conta o tempo que passou desde o servidor
+            const elapsed = Date.now() - serverTs;
+            syncPlay(track, positionMs + elapsed);
+          }
         },
         onStateChange: (e) => {
           // YT.PlayerState: PLAYING=1, PAUSED=2, ENDED=0, BUFFERING=3
@@ -622,15 +631,21 @@
   // Play a track object and seek to positionMs
   function syncPlay(track, positionMs) {
     currentTrack = track;
-    if (!ytReady || !ytPlayer) return;
 
-    const videoId = track.uri; // we store videoId as uri
+    // Atualiza UI imediatamente mesmo sem player
     document.getElementById('np-track').textContent  = track.name;
     document.getElementById('np-artist').textContent = track.artist;
     if (track.art) {
       document.getElementById('yt-thumb').innerHTML = `<img src="${track.art}" style="width:100%;height:100%;object-fit:cover">`;
     }
 
+    if (!ytReady || !ytPlayer) {
+      // Player ainda inicializando — guarda para aplicar no onReady
+      pendingSync = { track, positionMs, serverTs: Date.now() };
+      return;
+    }
+
+    const videoId = track.uri;
     ytPlayer.loadVideoById({ videoId, startSeconds: Math.max(0, Math.floor((positionMs||0)/1000)) });
   }
 
@@ -699,7 +714,15 @@
     renderUsers(state.users || []);
     queue = state.queue || [];
     renderQueue();
-    if (state.currentTrack) syncPlay(state.currentTrack, state.position || 0);
+    if (state.currentTrack) {
+      // serverTs: momento em que recebemos o welcome (aproximação do tempo do servidor)
+      const positionMs = state.position || 0;
+      if (ytReady) {
+        syncPlay(state.currentTrack, positionMs);
+      } else {
+        pendingSync = { track: state.currentTrack, positionMs, serverTs: Date.now() };
+      }
+    }
     addChatSys('▸ bem-vindo à sala global!');
   });
 
