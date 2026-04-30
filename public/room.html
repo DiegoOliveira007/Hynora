@@ -496,6 +496,7 @@
   let isPlaying  = false;
   let currentTrack = null;
   let progressInterval = null;
+  let ytStallTimer = null; // watchdog para buffering travado no mobile
 
   // ── NICK ──
   const myNick  = localStorage.getItem('hynora_nick') || 'visitante_' + Math.floor(Math.random()*999);
@@ -581,23 +582,27 @@
           }
         },
         onStateChange: (e) => {
-          // YT.PlayerState: PLAYING=1, PAUSED=2, ENDED=0, BUFFERING=3
+          // YT.PlayerState: PLAYING=1, PAUSED=2, ENDED=0, BUFFERING=3, CUED=5, UNSTARTED=-1
           if (e.data === YT.PlayerState.PLAYING) {
             isPlaying = true;
             document.getElementById('btn-play-pause').textContent = '⏸';
             document.getElementById('bars').classList.remove('off');
             document.getElementById('yt-thumb').style.opacity = '0';
             startProgressLoop();
+            // Limpa qualquer watchdog pendente
+            clearTimeout(ytStallTimer);
           } else if (e.data === YT.PlayerState.PAUSED) {
             isPlaying = false;
             document.getElementById('btn-play-pause').textContent = '▶';
             document.getElementById('bars').classList.add('off');
             clearInterval(progressInterval);
+            clearTimeout(ytStallTimer);
           } else if (e.data === YT.PlayerState.ENDED) {
             isPlaying = false;
             document.getElementById('btn-play-pause').textContent = '▶';
             document.getElementById('bars').classList.add('off');
             clearInterval(progressInterval);
+            clearTimeout(ytStallTimer);
             // Play next in queue automatically, or clear player if queue is empty
             if (queue.length > 0) {
               const next = queue[0];
@@ -606,6 +611,16 @@
             } else {
               clearPlayer();
             }
+          } else if (e.data === YT.PlayerState.BUFFERING) {
+            // Watchdog: se ficar em buffering por mais de 8s no mobile, tenta recuperar
+            clearTimeout(ytStallTimer);
+            ytStallTimer = setTimeout(() => {
+              if (ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === YT.PlayerState.BUFFERING) {
+                console.warn('Player travado em buffering — tentando recuperar');
+                const curTime = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+                ytPlayer.seekTo(curTime, true);
+              }
+            }, 8000);
           }
         },
       }
@@ -703,11 +718,77 @@
   window.addEventListener('resize', initLayout);
 
   // ── SOCKET.IO ──
-  const socket = io();
+  const socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
+  });
 
-  socket.on('connect', () => {
+  let hasJoined = false;
+
+  function doJoin() {
     const avatar = localStorage.getItem('hynora_avatar') || null;
     socket.emit('join', { nick: myNick, avatar });
+    hasJoined = true;
+  }
+
+  socket.on('connect', () => {
+    doJoin();
+  });
+
+  // ── VISIBILIDADE (mobile background/foreground) ──
+  let wasHidden = false;
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Página foi para background
+      wasHidden = true;
+      // Para o progress loop para não desperdiçar recursos
+      clearInterval(progressInterval);
+    } else {
+      // Voltou para foreground
+      if (wasHidden) {
+        wasHidden = false;
+        // Resync com o servidor ao voltar
+        if (socket.connected) {
+          socket.emit('requestSync');
+        } else {
+          // Socket desconectou enquanto estava em background — vai reconectar automaticamente
+          // onReconnect cuida do join
+        }
+        // Reinicia progress loop se estava tocando
+        if (isPlaying && ytPlayer && ytReady) {
+          startProgressLoop();
+        }
+      }
+    }
+  });
+
+  // ── RESYNC ao voltar do background ──
+  socket.on('syncState', ({ currentTrack: track, isPlaying: playing, position }) => {
+    if (track) {
+      currentTrack = track;
+      if (ytReady && ytPlayer) {
+        const videoId = track.uri;
+        const currentId = ytPlayer.getVideoData ? ytPlayer.getVideoData().video_id : null;
+        if (currentId !== videoId) {
+          // Música diferente — carrega
+          syncPlay(track, position);
+        } else {
+          // Mesma música — só sincroniza posição se diferença > 3s
+          const playerPos = (ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() * 1000 : 0);
+          if (Math.abs(playerPos - position) > 3000) {
+            ytPlayer.seekTo(Math.floor(position / 1000), true);
+          }
+          if (playing && ytPlayer.getPlayerState() !== 1) ytPlayer.playVideo();
+          else if (!playing && ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
+        }
+      } else {
+        pendingSync = { track, positionMs: position, serverTs: Date.now() };
+      }
+    }
   });
 
   socket.on('welcome', (state) => {

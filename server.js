@@ -20,11 +20,13 @@ app.get('/room', (req, res) => {
 });
 
 // ── Estado global da sala
-let users = [];       // { id, nick }
+let users = [];       // { id, nick, avatar }
+let disconnectTimers = {}; // { nick: timeoutId } — grace period antes de remover do chat
 let queue = [];       // fila de músicas
 let currentTrack = null;  // música tocando agora
 let isPlaying = false;
 let startedAt = null; // timestamp de quando começou a tocar (para sync de posição)
+let pausedAt = null;  // posição em ms onde foi pausado
 
 // ── Socket.io
 io.on('connection', (socket) => {
@@ -33,9 +35,22 @@ io.on('connection', (socket) => {
   // Usuário entrou na sala
   socket.on('join', ({ nick, avatar }) => {
     let finalNick = String(nick || 'user').slice(0, 20);
-    let count = 1;
-    while (users.some(u => u.nick === finalNick)) {
-      finalNick = nick + '_' + count++;
+
+    // Verifica se é uma reconexão (mesmo nick ainda no grace period)
+    const isReconnect = disconnectTimers[finalNick] !== undefined;
+    if (isReconnect) {
+      clearTimeout(disconnectTimers[finalNick]);
+      delete disconnectTimers[finalNick];
+      // Remove entrada antiga (socket antigo já está morto)
+      users = users.filter(u => u.nick !== finalNick);
+    } else {
+      // Só adiciona sufixo se não for reconexão e nick estiver em uso
+      let count = 1;
+      let candidate = finalNick;
+      while (users.some(u => u.nick === candidate)) {
+        candidate = finalNick + '_' + count++;
+      }
+      finalNick = candidate;
     }
 
     // Avatar: string base64 curta (64x64 JPEG ~3KB), limita tamanho
@@ -46,6 +61,16 @@ io.on('connection', (socket) => {
     socket.avatar = safeAvatar;
     users.push({ id: socket.id, nick: finalNick, avatar: safeAvatar });
 
+    // Calcula posição atual considerando se está pausado
+    let position = 0;
+    if (currentTrack) {
+      if (isPlaying && startedAt) {
+        position = Date.now() - startedAt;
+      } else if (!isPlaying && pausedAt !== null) {
+        position = pausedAt;
+      }
+    }
+
     // Manda estado atual só para quem entrou
     socket.emit('welcome', {
       nick: finalNick,
@@ -53,11 +78,26 @@ io.on('connection', (socket) => {
       queue,
       currentTrack,
       isPlaying,
-      position: (isPlaying && startedAt) ? Date.now() - startedAt : 0,
+      position,
     });
 
     io.emit('users', users.map(u => ({ nick: u.nick, avatar: u.avatar })));
-    io.emit('chat', { nick: 'sistema', message: `${finalNick} entrou na sala ♪`, system: true });
+    if (!isReconnect) {
+      io.emit('chat', { nick: 'sistema', message: `${finalNick} entrou na sala ♪`, system: true });
+    }
+  });
+
+  // Sync sob demanda (quando cliente volta do background)
+  socket.on('requestSync', () => {
+    let position = 0;
+    if (currentTrack) {
+      if (isPlaying && startedAt) {
+        position = Date.now() - startedAt;
+      } else if (!isPlaying && pausedAt !== null) {
+        position = pausedAt;
+      }
+    }
+    socket.emit('syncState', { currentTrack, isPlaying, position });
   });
 
   // Chat
@@ -74,6 +114,7 @@ io.on('connection', (socket) => {
     currentTrack = track;
     isPlaying = true;
     startedAt = Date.now();
+    pausedAt  = null;
 
     io.emit('playTrack', { track, startedAt });
     io.emit('chat', { nick: 'sistema', message: `${socket.nick} tocando: ${track.name} — ${track.artist}`, system: true });
@@ -104,23 +145,37 @@ io.on('connection', (socket) => {
   socket.on('pause', () => {
     if (!socket.nick) return;
     isPlaying = false;
+    // Salva posição em ms onde pausou
+    pausedAt = (startedAt) ? Date.now() - startedAt : 0;
     io.emit('pause');
   });
 
   socket.on('resume', () => {
     if (!socket.nick) return;
     isPlaying = true;
-    startedAt = Date.now();
+    // Recalcula startedAt baseado na posição pausada
+    startedAt = Date.now() - (pausedAt || 0);
+    pausedAt  = null;
     io.emit('resume');
   });
 
-  // Desconectou
+  // Desconectou — grace period de 20s antes de remover da sala
   socket.on('disconnect', () => {
     if (!socket.nick) return;
+    const nick = socket.nick;
+    console.log('Desconectou (aguardando reconexão):', nick);
+
+    // Remove do array de users imediatamente para não duplicar no reconnect
     users = users.filter(u => u.id !== socket.id);
+    // Atualiza lista para todos (usuário some visualmente)
     io.emit('users', users.map(u => ({ nick: u.nick, avatar: u.avatar })));
-    io.emit('chat', { nick: 'sistema', message: `${socket.nick} saiu`, system: true });
-    console.log('Saiu:', socket.nick);
+
+    // Grace period: 20s para reconectar sem aparecer mensagem de "saiu"
+    disconnectTimers[nick] = setTimeout(() => {
+      delete disconnectTimers[nick];
+      io.emit('chat', { nick: 'sistema', message: `${nick} saiu`, system: true });
+      console.log('Saiu definitivamente:', nick);
+    }, 20000);
   });
 });
 
