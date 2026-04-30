@@ -27,7 +27,8 @@
     body {
       font-family: 'Pixelify Sans', monospace;
       background: var(--bg); color: var(--text);
-      height: 100vh; overflow: hidden;
+      height: 100vh; height: 100dvh;
+      overflow: hidden;
       display: flex; flex-direction: column;
     }
     body::after {
@@ -39,41 +40,47 @@
     /* ── TOPBAR ── */
     #topbar {
       position: relative; z-index: 10;
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 16px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
       border-bottom: 1px solid var(--border);
       background: rgba(10,21,16,0.97);
       backdrop-filter: blur(10px); flex-shrink: 0;
+      flex-wrap: nowrap; min-height: 44px;
     }
     #logo {
       font-family: 'Press Start 2P', monospace;
       font-size: 9px; color: var(--green);
       text-shadow: 2px 2px 0 var(--green-dark);
       cursor: pointer; text-decoration: none;
+      flex-shrink: 0;
     }
     .tbadge {
-      font-size: 9px; padding: 2px 8px; border-radius: 3px;
+      font-size: 9px; padding: 2px 6px; border-radius: 3px;
       background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+      white-space: nowrap;
     }
     #yt-badge {
       display: flex; align-items: center; gap: 5px;
-      font-size: 9px; padding: 3px 9px; border-radius: 3px;
+      font-size: 9px; padding: 3px 7px; border-radius: 3px;
       background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.25);
-      color: #ff6b6b;
+      color: #ff6b6b; white-space: nowrap;
     }
-    #yt-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yt); animation: pulse 2s infinite; }
+    #yt-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yt); animation: pulse 2s infinite; flex-shrink: 0; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    #user-top { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+    #user-top { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); flex-shrink: 0; }
     .av-sm {
       width: 26px; height: 26px; background: var(--green-dark);
       border: 1.5px solid var(--green); border-radius: 4px;
       display: flex; align-items: center; justify-content: center;
       font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--green);
+      flex-shrink: 0;
     }
     #btn-leave {
-      font-family: 'Pixelify Sans', monospace; font-size: 10px; padding: 3px 10px;
+      font-family: 'Pixelify Sans', monospace; font-size: 10px; padding: 4px 10px;
       background: transparent; border: 1.5px solid rgba(200,80,80,0.4);
       border-radius: 4px; color: #e07070; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap; -webkit-tap-highlight-color: transparent;
+      min-height: 32px;
     }
     #btn-leave:hover { background: rgba(200,80,80,0.15); }
 
@@ -93,14 +100,14 @@
 
     /* ── PLAYER ── */
     #player-area {
-      padding: 14px 16px 12px;
+      padding: 12px 14px 10px;
       border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    #player-box { display: flex; align-items: center; gap: 16px; }
+    #player-box { display: flex; align-items: center; gap: 12px; }
 
     /* YouTube iframe container — hidden but active */
     #yt-iframe-wrap {
-      width: 130px; height: 130px; flex-shrink: 0;
+      width: 110px; height: 110px; flex-shrink: 0;
       border-radius: 8px; overflow: hidden;
       border: 2px solid var(--green-dark);
       position: relative; background: #000;
@@ -118,17 +125,17 @@
       transition: opacity 0.3s;
     }
 
-    #player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
-    #np-track { font-size: 17px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #np-artist { font-size: 13px; color: var(--muted); }
-    #progress-wrap { display: flex; align-items: center; gap: 8px; }
+    #player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    #np-track { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #np-artist { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #progress-wrap { display: flex; align-items: center; gap: 6px; }
     #progress-bar {
       flex: 1; height: 4px; background: var(--green-dark);
       border-radius: 2px; overflow: hidden; cursor: default;
     }
     #progress-fill { height: 100%; background: var(--yt); border-radius: 2px; width: 0%; transition: width 0.5s linear; }
     .prog-time { font-size: 9px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-    #controls { display: flex; align-items: center; gap: 10px; }
+    #controls { display: flex; align-items: center; gap: 8px; }
     .ctrl-btn {
       background: transparent; border: none; cursor: pointer;
       color: var(--muted); font-size: 16px; padding: 4px; border-radius: 4px;
@@ -139,16 +146,16 @@
       width: 36px; height: 36px; border-radius: 50%;
       background: var(--yt); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px; color: #fff; transition: all 0.15s;
+      font-size: 14px; color: #fff; transition: all 0.15s; flex-shrink: 0;
     }
     #btn-play-pause:hover { background: #ff3333; transform: scale(1.06); }
-    #vol-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    #vol-wrap { display: flex; align-items: center; gap: 5px; margin-left: auto; }
     #vol-slider {
-      -webkit-appearance: none; width: 70px; height: 3px;
+      -webkit-appearance: none; width: 60px; height: 3px;
       background: var(--green-dark); border-radius: 2px; outline: none; cursor: pointer;
     }
     #vol-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 12px; height: 12px;
+      -webkit-appearance: none; width: 14px; height: 14px;
       border-radius: 50%; background: var(--green); cursor: pointer;
     }
     .bars { display: flex; gap: 2px; align-items: flex-end; height: 14px; flex-shrink: 0; }
@@ -327,15 +334,17 @@
     /* ── BTN OPEN CHAT (mobile flutuante) ── */
     #btn-open-chat {
       display: none;
-      position: fixed; bottom: 18px; right: 16px; z-index: 500;
-      width: 44px; height: 44px; border-radius: 50%;
+      position: fixed; bottom: 20px; right: 16px; z-index: 500;
+      width: 48px; height: 48px; border-radius: 50%;
       background: var(--green-dark); border: 2px solid var(--green);
-      color: var(--green-light); font-size: 18px;
+      color: var(--green-light); font-size: 20px;
       cursor: pointer; align-items: center; justify-content: center;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.5);
       transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
     #btn-open-chat:hover { background: var(--green); color: var(--bg); }
+    #btn-open-chat:active { transform: scale(0.95); }
     #btn-open-chat.visible { display: flex; }
 
     /* ── SIDEBAR MOBILE ── */
@@ -355,6 +364,51 @@
       #sidebar.chat-open-mobile { transform: translateX(0); }
       #main.chat-hidden #sidebar { transform: translateX(100%) !important; opacity: 1 !important; }
       #btn-close-chat { font-size: 18px; color: rgba(116,198,157,0.6); }
+
+      /* Topbar — hide some badges to save space */
+      #yt-badge { display: none; }
+      #topbar > span:first-of-type { display: none; } /* ▸ arrow */
+      #topbar > span + span { display: none; } /* "sala global" text */
+      #nick-top { display: none; }
+      .tbadge { font-size: 8px; padding: 2px 5px; }
+
+      /* Player compact on mobile */
+      #yt-iframe-wrap { width: 80px; height: 80px; }
+      #np-track { font-size: 13px; }
+      #np-artist { font-size: 11px; }
+      #vol-slider { width: 50px; }
+      #progress-wrap { gap: 4px; }
+
+      /* Search/queue panels — touch-friendly inputs */
+      .text-inp { font-size: 16px; padding: 10px 12px; }
+      .green-btn { font-size: 13px; padding: 10px 14px; }
+      #search-form { padding: 10px 12px; }
+      #url-form { padding: 8px 12px 10px; }
+
+      /* Chat form touch-friendly */
+      #chat-input { font-size: 16px; padding: 10px 10px; }
+      #btn-send { padding: 10px 12px; font-size: 7px; }
+      #chat-form { padding: 8px 10px 12px; }
+
+      /* Tabs bigger tap targets */
+      .tab { padding: 11px 8px; font-size: 6px; }
+    }
+
+    /* Very small screens */
+    @media (max-width: 360px) {
+      #logo { font-size: 8px; }
+      #yt-iframe-wrap { width: 68px; height: 68px; }
+      #np-track { font-size: 12px; }
+      #vol-wrap { display: none; }
+      #player-area { padding: 10px 10px 8px; }
+    }
+
+    /* Touch device improvements */
+    @media (hover: none) {
+      #btn-leave:active { background: rgba(200,80,80,0.2); }
+      .ctrl-btn:active { color: var(--text); }
+      .tab:active { color: var(--green); }
+      .track-card:active { background: var(--surface2); }
     }
 
     /* ── TOAST ── */
@@ -434,10 +488,10 @@
 
       <!-- Adicionar por link -->
       <div class="panel" id="panel-search">
-        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
           <div style="font-family:'Press Start 2P',monospace;font-size:6px;color:var(--muted);letter-spacing:2px;">COLE O LINK DO YOUTUBE</div>
           <div style="display:flex;gap:8px;">
-            <input class="text-inp" type="text" id="url-input" placeholder="https://youtube.com/watch?v=...">
+            <input class="text-inp" type="text" id="url-input" placeholder="https://youtube.com/watch?v=..." inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
             <button class="green-btn" id="btn-url">+FILA</button>
           </div>
           <div id="url-status" style="font-size:11px;color:var(--muted);min-height:16px;"></div>
@@ -474,7 +528,7 @@
       </div>
       <div id="chat-msgs"></div>
       <div id="chat-form">
-        <input class="text-inp" type="text" id="chat-input" placeholder="Mensagem..." maxlength="200">
+        <input class="text-inp" type="text" id="chat-input" placeholder="Mensagem..." maxlength="200" autocomplete="off" autocorrect="on" autocapitalize="sentences">
         <button id="btn-send">OK</button>
       </div>
     </div>
