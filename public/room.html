@@ -31,6 +31,16 @@
       overflow: hidden;
       display: flex; flex-direction: column;
     }
+    /* Mobile: prevent keyboard resize from collapsing layout */
+    @media (max-width: 640px) {
+      body {
+        /* Use fixed height so the virtual keyboard resize doesn't
+           shrink the body and hide the chat. The sidebar is
+           position:fixed so it handles its own scroll context. */
+        height: 100vh;
+        min-height: -webkit-fill-available;
+      }
+    }
     body::after {
       content: ''; position: fixed; inset: 0;
       background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
@@ -352,7 +362,8 @@
       #main { grid-template-columns: 1fr !important; }
       #sidebar {
         position: fixed;
-        top: 0; right: 0; bottom: 0;
+        /* top is set dynamically via JS to match topbar height */
+        top: var(--topbar-h, 44px); right: 0; bottom: 0;
         width: min(300px, 90vw);
         background: rgba(10,21,16,0.98);
         border-left: 1px solid var(--border);
@@ -1140,6 +1151,26 @@
   document.getElementById('url-input').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btn-url').click(); });
 
   document.getElementById('btn-leave').addEventListener('click', () => { window.location.href = '/'; });
+
+  // ── MOBILE: topbar height → CSS var so sidebar doesn't overlap it ──
+  function updateTopbarHeight() {
+    const h = document.getElementById('topbar').getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--topbar-h', h + 'px');
+  }
+  updateTopbarHeight();
+  window.addEventListener('resize', updateTopbarHeight);
+
+  // ── MOBILE: keep chat-form visible when virtual keyboard opens ──
+  if (window.visualViewport) {
+    function onViewportChange() {
+      const sidebar = document.getElementById('sidebar');
+      if (window.innerWidth > 640) { sidebar.style.bottom = ''; return; }
+      const offset = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+      sidebar.style.bottom = (offset > 0 ? offset : 0) + 'px';
+    }
+    window.visualViewport.addEventListener('resize', onViewportChange);
+    window.visualViewport.addEventListener('scroll', onViewportChange);
+  }
 </script>
 </body>
 </html>
