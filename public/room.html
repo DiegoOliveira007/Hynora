@@ -305,7 +305,8 @@
     }
     #chat-msgs::-webkit-scrollbar { width: 3px; }
     #chat-msgs::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 2px; }
-    .msg { display: flex; flex-direction: column; gap: 2px; }
+    .msg { display: flex; flex-direction: row; gap: 7px; align-items: flex-start; }
+    .msg.sys { flex-direction: column; gap: 2px; }
     .msg-hdr { display: flex; align-items: center; gap: 5px; }
     .msg-nick { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--green-light); }
     .msg-nick.me { color: var(--yt); }
@@ -1041,7 +1042,6 @@
     } else {
       const isMe = nick === myNick;
       d.className = 'msg';
-      d.style.cssText = 'display:flex;gap:7px;align-items:flex-start';
       d.innerHTML = `
         ${avatarHtml(nick, 24)}
         <div style="flex:1;min-width:0">
